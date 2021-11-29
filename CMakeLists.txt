@@ -64,7 +64,7 @@ endif(CCACHE_FOUND)
 
 option(WITH_JEMALLOC "build with JeMalloc" OFF)
 option(WITH_LIBURING "build with liburing" ON)
-option(WITH_SNAPPY "build with SNAPPY" OFF)
+option(WITH_SNAPPY "build with SNAPPY" ON)
 option(WITH_LZ4 "build with lz4" OFF)
 option(WITH_ZLIB "build with zlib" OFF)
 option(WITH_ZSTD "build with zstd" OFF)
@@ -1441,3 +1441,6 @@ option(WITH_BENCHMARK "build benchmark tests" OFF)
 if(WITH_BENCHMARK)
   add_subdirectory(${PROJECT_SOURCE_DIR}/microbench/)
 endif()
+
+# SuRF Experiment
+add_subdirectory(${PROJECT_SOURCE_DIR}/index_block_compression)
