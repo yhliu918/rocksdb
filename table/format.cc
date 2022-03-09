@@ -107,6 +107,7 @@ void IndexValue::EncodeTo(std::string* dst, bool have_first_key,
   }
 }
 
+
 Status IndexValue::DecodeFrom(Slice* input, bool have_first_key,
                               const BlockHandle* previous_handle) {
   if (previous_handle) {

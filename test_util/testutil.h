@@ -43,7 +43,7 @@ extern const uint32_t kLatestFormatVersion;
 enum RandomKeyType : char { RANDOM, LARGEST, SMALLEST, MIDDLE };
 extern std::string RandomKey(Random* rnd, int len,
                              RandomKeyType type = RandomKeyType::RANDOM);
-
+extern std::string RandKey(Random* rnd, int len);
 // Store in *dst a string of length "len" that will compress to
 // "N*compressed_fraction" bytes and return a Slice that references
 // the generated data.

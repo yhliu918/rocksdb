@@ -95,3 +95,11 @@ fuzz/proto/gen/
 fuzz/crash-*
 
 cmake-build-*
+**db_dir*
+*.sst
+*.txt
+!CMakeLists.txt
+*.csv
+*.log
+*.pdf
+

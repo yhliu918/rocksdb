@@ -10,6 +10,7 @@
 #pragma once
 #include <stddef.h>
 #include <stdint.h>
+
 #include <string>
 #include <vector>
 
@@ -19,12 +20,14 @@
 #include "rocksdb/options.h"
 #include "rocksdb/statistics.h"
 #include "rocksdb/table.h"
+#include "rocksdb/leco.h"
 #include "table/block_based/block_prefix_index.h"
 #include "table/block_based/data_block_hash_index.h"
 #include "table/format.h"
 #include "table/internal_iterator.h"
 #include "test_util/sync_point.h"
 #include "util/random.h"
+
 
 namespace ROCKSDB_NAMESPACE {
 
@@ -151,7 +154,7 @@ class Block {
  public:
   // Initialize the block with the specified contents.
   explicit Block(BlockContents&& contents, size_t read_amp_bytes_per_bit = 0,
-                 Statistics* statistics = nullptr);
+                 Statistics* statistics = nullptr, bool using_leco_encode = false);
   // No copying allowed
   Block(const Block&) = delete;
   void operator=(const Block&) = delete;
@@ -213,7 +216,8 @@ class Block {
                                    bool total_order_seek, bool have_first_key,
                                    bool key_includes_seq, bool value_is_full,
                                    bool block_contents_pinned = false,
-                                   BlockPrefixIndex* prefix_index = nullptr);
+                                   BlockPrefixIndex* prefix_index = nullptr, bool using_leco_encode = false, 
+                                   int block_size = 100, bool padding_enable = false, int key_num_per_block = 1);
 
   // Report an approximation of how much memory has been used.
   size_t ApproximateMemoryUsage() const;
@@ -224,8 +228,13 @@ class Block {
   size_t size_;              // contents_.data.size()
   uint32_t restart_offset_;  // Offset in data_ of restart array
   uint32_t num_restarts_;
+  bool using_leco_encode_;
+  int block_size_;
+  int key_num_per_block_;
+
   std::unique_ptr<BlockReadAmpBitmap> read_amp_bitmap_;
   DataBlockHashIndex data_block_hash_index_;
+
 };
 
 // A `BlockIter` iterates over the entries in a `Block`'s data buffer. The
@@ -252,7 +261,9 @@ class BlockIter : public InternalIteratorBase<TValue> {
  public:
   void InitializeBase(const Comparator* raw_ucmp, const char* data,
                       uint32_t restarts, uint32_t num_restarts,
-                      SequenceNumber global_seqno, bool block_contents_pinned) {
+                      SequenceNumber global_seqno, bool block_contents_pinned, int block_size = 1,
+                      bool using_leco_encode = false, bool padding_enable = false,
+                      int key_num_per_block = 1) {
     assert(data_ == nullptr);  // Ensure it is called only once
     assert(num_restarts > 0);  // Ensure the param is valid
 
@@ -265,6 +276,10 @@ class BlockIter : public InternalIteratorBase<TValue> {
     global_seqno_ = global_seqno;
     block_contents_pinned_ = block_contents_pinned;
     cache_handle_ = nullptr;
+    block_size_ = block_size;
+    using_leco_encode_ = using_leco_encode;
+    padding_enable_ = padding_enable;
+    key_num_per_block_ = key_num_per_block;
   }
 
   // Makes Valid() return false, status() return `s`, and Seek()/Prev()/etc do
@@ -378,10 +393,15 @@ class BlockIter : public InternalIteratorBase<TValue> {
   // e.g. PinnableSlice, the pointer to the bytes will still be valid.
   bool block_contents_pinned_;
   SequenceNumber global_seqno_;
+  int block_size_;
+  bool using_leco_encode_;
+  bool padding_enable_;
+  int key_num_per_block_;
 
   virtual void SeekToFirstImpl() = 0;
   virtual void SeekToLastImpl() = 0;
   virtual void SeekImpl(const Slice& target) = 0;
+  
   virtual void SeekForPrevImpl(const Slice& target) = 0;
   virtual void NextImpl() = 0;
   virtual void PrevImpl() = 0;
@@ -397,6 +417,9 @@ class BlockIter : public InternalIteratorBase<TValue> {
   // `key_buf_`, and `key_pinned_` with info about the found key.
   void UpdateKey() {
     key_buf_.Clear();
+    if(using_leco_encode_) {
+      return;
+    }
     if (!Valid()) {
       return;
     }
@@ -450,6 +473,7 @@ class BlockIter : public InternalIteratorBase<TValue> {
     return DecodeFixed32(data_ + restarts_ + index * sizeof(uint32_t));
   }
 
+  bool ParseValue_leco(int index);
   void SeekToRestartPoint(uint32_t index) {
     raw_key_.Clear();
     restart_index_ = index;
@@ -468,7 +492,9 @@ class BlockIter : public InternalIteratorBase<TValue> {
                          bool* is_index_key_result);
 
   void FindKeyAfterBinarySeek(const Slice& target, uint32_t index,
-                              bool is_index_key_result);
+                              bool is_index_key_result,bool use_leco = false);
+  template <typename T>
+  bool BinarySeek_leco(Slice& target, uint32_t* index);
 };
 
 class DataBlockIter final : public BlockIter<Slice> {
@@ -602,9 +628,11 @@ class IndexBlockIter final : public BlockIter<IndexValue> {
                   uint32_t restarts, uint32_t num_restarts,
                   SequenceNumber global_seqno, BlockPrefixIndex* prefix_index,
                   bool have_first_key, bool key_includes_seq,
-                  bool value_is_full, bool block_contents_pinned) {
+                  bool value_is_full, bool block_contents_pinned, bool using_leco_encode, int block_size, bool padding_enable,
+                  int key_num_per_block ) {
     InitializeBase(raw_ucmp, data, restarts, num_restarts,
-                   kDisableGlobalSequenceNumber, block_contents_pinned);
+                   kDisableGlobalSequenceNumber, block_contents_pinned, block_size, using_leco_encode, padding_enable,
+                   key_num_per_block);
     raw_key_.SetIsUserKey(!key_includes_seq);
     prefix_index_ = prefix_index;
     value_delta_encoded_ = !value_is_full;
@@ -614,6 +642,11 @@ class IndexBlockIter final : public BlockIter<IndexValue> {
     } else {
       global_seqno_state_.reset();
     }
+    using_leco_encode_ = using_leco_encode;
+    block_size_ = block_size;
+    padding_enable_ = padding_enable;
+    key_num_per_block_ = key_num_per_block;
+
   }
 
   Slice user_key() const override {
@@ -622,6 +655,17 @@ class IndexBlockIter final : public BlockIter<IndexValue> {
   }
 
   IndexValue value() const override {
+    
+    if(using_leco_encode_) {
+      uint64_t offset,size;
+      Slice v = value_;
+      GetFixed64(&v,&offset);
+      GetFixed64(&v,&size);
+      BlockHandle handle(offset,size);
+      IndexValue ret(handle,v);
+      return ret;
+      
+    }
     assert(Valid());
     if (value_delta_encoded_ || global_seqno_state_ != nullptr) {
       return decoded_value_;
@@ -681,7 +725,10 @@ class IndexBlockIter final : public BlockIter<IndexValue> {
   // previous delta encoded values in the same restart interval to the offset of
   // the first value in that restart interval.
   IndexValue decoded_value_;
-
+  bool using_leco_encode_;
+  int block_size_;
+  bool padding_enable_;
+  int key_num_per_block_;
   // When sequence number overwriting is enabled, this struct contains the seqno
   // to overwrite with, and current first_internal_key with overwritten seqno.
   // This is rarely used, so we put it behind a pointer and only allocate when

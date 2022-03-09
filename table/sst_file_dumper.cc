@@ -30,6 +30,7 @@
 #include "table/block_based/block.h"
 #include "table/block_based/block_based_table_builder.h"
 #include "table/block_based/block_based_table_factory.h"
+#include "table/block_based/block_based_table_reader.h"
 #include "table/block_based/block_builder.h"
 #include "table/format.h"
 #include "table/meta_blocks.h"
@@ -182,6 +183,33 @@ Status SstFileDumper::DumpTable(const std::string& out_filename) {
   if (s.ok()) {
     s = table_reader_->DumpTable(out_file.get());
   }
+  // Note(xinyu): modified
+  std::unique_ptr<WritableFile> out_file_key;
+  std::unique_ptr<WritableFile> out_file_size;
+  std::unique_ptr<WritableFile> out_file_offset;
+  s = env->NewWritableFile("/home/lyh/rocksdb/dump_data/poisson_20000_test_key.txt", &out_file_key, soptions_);
+  if (!s.ok()) {
+    // close the file before return error, ignore the close error if there's any
+    out_file_key->Close().PermitUncheckedError();
+    return s;
+  }
+  s = env->NewWritableFile("/home/lyh/rocksdb/dump_data/poisson_20000_test_offset.txt", &out_file_offset, soptions_);
+  if (!s.ok()) {
+    // close the file before return error, ignore the close error if there's any
+    out_file_offset->Close().PermitUncheckedError();
+    return s;
+  }
+  s = env->NewWritableFile("/home/lyh/rocksdb/dump_data/poisson_20000_test_size.txt", &out_file_size, soptions_);
+  if (!s.ok()) {
+    // close the file before return error, ignore the close error if there's any
+    out_file_size->Close().PermitUncheckedError();
+    return s;
+  }
+  if (s.ok()) {
+    s = reinterpret_cast<BlockBasedTable*>(table_reader_.get())
+            ->DumpTableNew(out_file_key.get(), out_file_offset.get(),
+                           out_file_size.get());
+  }
   if (!s.ok()) {
     // close the file before return error, ignore the close error if there's any
     out_file->Close().PermitUncheckedError();
@@ -205,9 +233,8 @@ Status SstFileDumper::CalculateCompressedTableSize(
   table_options.block_size = block_size;
   BlockBasedTableFactory block_based_tf(table_options);
   std::unique_ptr<TableBuilder> table_builder;
-  table_builder.reset(block_based_tf.NewTableBuilder(
-      tb_options,
-      dest_writer.get()));
+  table_builder.reset(
+      block_based_tf.NewTableBuilder(tb_options, dest_writer.get()));
   std::unique_ptr<InternalIterator> iter(table_reader_->NewIterator(
       read_options_, moptions_.prefix_extractor.get(), /*arena=*/nullptr,
       /*skip_filters=*/false, TableReaderCaller::kSSTDumpTool));

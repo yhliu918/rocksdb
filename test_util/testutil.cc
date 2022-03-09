@@ -16,6 +16,7 @@
 #include <cctype>
 #include <fstream>
 #include <sstream>
+#include <iostream>
 
 #include "db/memtable_list.h"
 #include "env/composite_env_wrapper.h"
@@ -39,8 +40,8 @@ const uint32_t kLatestFormatVersion = 5u;
 std::string RandomKey(Random* rnd, int len, RandomKeyType type) {
   // Make sure to generate a wide variety of characters so we
   // test the boundary conditions for short-key optimizations.
-  static const char kTestChars[] = {'\0', '\1', 'a',    'b',    'c',
-                                    'd',  'e',  '\xfd', '\xfe', '\xff'};
+  static const char kTestChars[] = {'0', '1', 'a',    'b',    'c',
+                                    'd',  'e',  'f', 'e', 'x'};
   std::string result;
   for (int i = 0; i < len; i++) {
     std::size_t indx = 0;
@@ -49,7 +50,7 @@ std::string RandomKey(Random* rnd, int len, RandomKeyType type) {
         indx = rnd->Uniform(sizeof(kTestChars));
         break;
       case RandomKeyType::LARGEST:
-        indx = sizeof(kTestChars) - 1;
+        indx = rnd->Skewed(sizeof(kTestChars));
         break;
       case RandomKeyType::MIDDLE:
         indx = sizeof(kTestChars) / 2;
@@ -63,6 +64,10 @@ std::string RandomKey(Random* rnd, int len, RandomKeyType type) {
   return result;
 }
 
+std::string RandKey(Random* rnd, int len) {
+  std::string result = rnd->RandomString(len);
+  return result;
+}
 extern Slice CompressibleString(Random* rnd, double compressed_fraction,
                                 int len, std::string* dst) {
   int raw = static_cast<int>(len * compressed_fraction);

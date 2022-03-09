@@ -53,9 +53,9 @@ std::string GenerateInternalKey(int primary_key, int secondary_key,
 // The generated key will be sorted. You can tune the parameters to generated
 // different kinds of test key/value pairs for different scenario.
 void GenerateRandomKVs(std::vector<std::string> *keys,
-                       std::vector<std::string> *values, const int from,
-                       const int len, const int step = 1,
-                       const int padding_size = 0,
+                       std::vector<std::string> *values, const int from/* first key id */,
+                       const int len/* last key id */, const int step = 1,
+                       const int padding_size = 0 /* padding_size bytes randomly generated suffix*/,
                        const int keys_share_prefix = 1) {
   Random rnd(302);
 
@@ -183,6 +183,7 @@ void CheckBlockContents(BlockContents contents, const int max_key,
   for (int i = 1; i < max_key - 1; i += 2) {
     // `DataBlockIter` assumes its APIs receive only internal keys.
     auto key = GenerateInternalKey(i, 0, 0, nullptr);
+
     regular_iter->Seek(key);
     ASSERT_TRUE(regular_iter->Valid());
   }
@@ -530,7 +531,8 @@ void GenerateRandomIndexEntries(std::vector<std::string> *separators,
   std::set<std::string> keys;
   while ((int)keys.size() < len * 2) {
     // Keys need to be at least 8 bytes long to look like internal keys.
-    keys.insert(test::RandomKey(&rnd, 12));
+    std::string tmp_string = test::RandomKey(&rnd, 12);
+    keys.insert(tmp_string);
   }
 
   uint64_t offset = 0;
@@ -552,15 +554,17 @@ void GenerateRandomIndexEntries(std::vector<std::string> *separators,
 void GenerateRandomIndexEntriesGoodSeparators(
     std::vector<std::string> *separators,
     std::vector<BlockHandle> *block_handles,
-    std::vector<std::string> *first_keys, const int len) {
+    std::vector<std::string> *first_keys, const int len, int key_length) {
   Random rnd(42);
 
+  std::vector<int> s_length;
   // For each of `len` blocks, we need to generate a first and last key.
   // Let's generate n*2 random keys, sort them, group into consecutive pairs.
+  std::string internal_key = test::RandKey(&rnd, 8);
   std::set<std::string> keys;
   while ((int)keys.size() < len * 2) {
     // Keys need to be at least 8 bytes long to look like internal keys.
-    keys.insert(test::RandomKey(&rnd, 12));
+    keys.insert(test::RandKey(&rnd, key_length));
   }
 
   uint64_t offset = 0;
@@ -569,21 +573,39 @@ void GenerateRandomIndexEntriesGoodSeparators(
   for (auto it = keys.begin(); it != keys.end();) {
     std::string prev = *it;
     first_keys->emplace_back(*it++);
+    //std::cout<< "record "<< *it<<std::endl;
     BytewiseComparator()->FindShortestSeparator(&prev, *it);
     it++;
-    separators->emplace_back(prev);
-    uint64_t size = 0;
+    separators->emplace_back(prev+internal_key);
+    s_length.emplace_back(prev.size());
+    uint64_t size = 0;//now the value is 0 length
     // uint64_t size = rnd.Uniform(1024 * 16);
     BlockHandle handle(offset, size);
     offset += size + kBlockTrailerSize;
     block_handles->emplace_back(handle);
   }
+  int maxi = s_length[0];
+  int mini = s_length[0];
+  int sum = 0;
+  for(int i=0;i< (int)s_length.size();i++){
+    if(s_length[i]<mini){
+        mini = s_length[i];
+    }
+    if(s_length[i]>maxi){
+      maxi = s_length[i];
+    }
+    sum+=s_length[i];
+  }
+  std::cout<<"max length of sep "<< maxi<<std::endl;
+  std::cout<<"min length of sep "<< mini<<std::endl;
+  std::cout<<"avg length of sep "<< (double)sum/(double)s_length.size()<<std::endl;
 }
 
 TEST_P(IndexBlockTest, IndexBlockSizeTest) {
   Random rnd(301);
   Options options = Options();
 
+  int key_length = 8;
   std::vector<std::string> separators;
   std::vector<BlockHandle> block_handles;
   std::vector<std::string> first_keys;
@@ -592,7 +614,7 @@ TEST_P(IndexBlockTest, IndexBlockSizeTest) {
   int num_records = 1000;
 
   GenerateRandomIndexEntriesGoodSeparators(&separators, &block_handles,
-                                           &first_keys, num_records);
+                                           &first_keys, num_records, key_length);
   BlockHandle last_encoded_handle;
   for (int i = 0; i < num_records; i++) {
     IndexValue entry(block_handles[i], first_keys[i]);
@@ -610,56 +632,16 @@ TEST_P(IndexBlockTest, IndexBlockSizeTest) {
   if (includeFirstKey())
     // varint32 used to save first_key_size, so it actually takes only 1 byte
     // instead of 4.
-    std::cout << "uncompressed size: " << (12 + 16 + 12 + 4) * num_records
+    std::cout << "uncompressed size: " << (key_length + 16 + key_length + 4) * num_records
               << std::endl;
 
   else
-    std::cout << "uncompressed size: " << (12 + 3) * num_records << std::endl;
+    std::cout << "uncompressed size: " << (key_length + 3) * num_records << std::endl;
 
   // read serialized contents of the block
   Slice rawblock = builder.Finish();
-  std::cout << "compressed size: " << rawblock.size() << std::endl;
-}
+  std::cout << "compressed size: " << rawblock.size() - 8*num_records << std::endl;
 
-TEST_P(IndexBlockTest, IndexValueEncodingTest) {
-  Random rnd(301);
-  Options options = Options();
-
-  std::vector<std::string> separators;
-  std::vector<BlockHandle> block_handles;
-  std::vector<std::string> first_keys;
-  const bool kUseDeltaEncoding = true;
-  BlockBuilder builder(16, kUseDeltaEncoding, useValueDeltaEncoding());
-  int num_records = 100;
-
-  GenerateRandomIndexEntries(&separators, &block_handles, &first_keys,
-                             num_records);
-  BlockHandle last_encoded_handle;
-  for (int i = 0; i < num_records; i++) {
-    IndexValue entry(block_handles[i], first_keys[i]);
-    std::string encoded_entry;
-    std::string delta_encoded_entry;
-    entry.EncodeTo(&encoded_entry, includeFirstKey(), nullptr);
-    if (useValueDeltaEncoding() && i > 0) {
-      entry.EncodeTo(&delta_encoded_entry, includeFirstKey(),
-                     &last_encoded_handle);
-    }
-    last_encoded_handle = entry.handle;
-    const Slice delta_encoded_entry_slice(delta_encoded_entry);
-    builder.Add(separators[i], encoded_entry, &delta_encoded_entry_slice);
-  }
-  if (includeFirstKey())
-    // varint32 used to save first_key_size, so it actually takes only 1 byte
-    // instead of 4.
-    std::cout << "uncompressed size: " << (12 + 16 + 12 + 4) * num_records
-              << std::endl;
-
-  else
-    std::cout << "uncompressed size: " << (12 + 3) * num_records << std::endl;
-
-  // read serialized contents of the block
-  Slice rawblock = builder.Finish();
-  std::cout << "compressed size: " << rawblock.size() << std::endl;
 
   // create block reader
   BlockContents contents;
@@ -676,49 +658,52 @@ TEST_P(IndexBlockTest, IndexValueEncodingTest) {
       options.comparator, kDisableGlobalSequenceNumber, kNullIter, kNullStats,
       kTotalOrderSeek, includeFirstKey(), kIncludesSeq, kValueIsFull);
   iter->SeekToFirst();
+  double seq_start = clock();
   for (int index = 0; index < num_records; ++index) {
     ASSERT_TRUE(iter->Valid());
-
     Slice k = iter->key();
     IndexValue v = iter->value();
-
+    //std::cout<< "index "<< index<<" key "<< k.ToString()<<" value "<<v.handle.offset()<<" , "<<v.handle.size()<<std::endl; 
     EXPECT_EQ(separators[index], k.ToString());
     EXPECT_EQ(block_handles[index].offset(), v.handle.offset());
     EXPECT_EQ(block_handles[index].size(), v.handle.size());
     EXPECT_EQ(includeFirstKey() ? first_keys[index] : "",
               v.first_internal_key.ToString());
-
-    iter->Next();
+      iter->Next(); 
   }
   delete iter;
-
+  double seq_end = clock();
+  std::cout<<"seq access "<<(seq_end-seq_start)/CLOCKS_PER_SEC<<std::endl;
   // read block contents randomly
   iter = reader.NewIndexIterator(
       options.comparator, kDisableGlobalSequenceNumber, kNullIter, kNullStats,
       kTotalOrderSeek, includeFirstKey(), kIncludesSeq, kValueIsFull);
-  for (int i = 0; i < num_records * 2; i++) {
+  double start = clock();
+  for (int i = 0; i < num_records; i++) {
     // find a random key in the lookaside array
     int index = rnd.Uniform(num_records);
     Slice k(separators[index]);
 
+    //std::cout<< "separator "<< k.ToString()<<std::endl;
     // search in block for this key
     iter->Seek(k);
     ASSERT_TRUE(iter->Valid());
     IndexValue v = iter->value();
-    EXPECT_EQ(separators[index], iter->key().ToString());
-    EXPECT_EQ(block_handles[index].offset(), v.handle.offset());
-    EXPECT_EQ(block_handles[index].size(), v.handle.size());
-    EXPECT_EQ(includeFirstKey() ? first_keys[index] : "",
-              v.first_internal_key.ToString());
+    v.handle.offset();
+    // EXPECT_EQ(separators[index], iter->key().ToString());
+    // EXPECT_EQ(block_handles[index].offset(), v.handle.offset());
+    // EXPECT_EQ(block_handles[index].size(), v.handle.size());
+    // EXPECT_EQ(includeFirstKey() ? first_keys[index] : "",
+    //           v.first_internal_key.ToString());
   }
   delete iter;
+  double end = clock();
+  std::cout<<"random access "<< (end - start)*1000000000/ (num_records *CLOCKS_PER_SEC) <<" ns per record"<<std::endl;
 }
 
+
 INSTANTIATE_TEST_CASE_P(P, IndexBlockTest,
-                        ::testing::Values(std::make_tuple(false, false),
-                                          std::make_tuple(false, true),
-                                          std::make_tuple(true, false),
-                                          std::make_tuple(true, true)));
+                        ::testing::Values(std::make_tuple(true, false)));
 
 }  // namespace ROCKSDB_NAMESPACE
 
@@ -726,6 +711,7 @@ int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
+
 
 // int main() {
 //   rocksdb::DB* db;

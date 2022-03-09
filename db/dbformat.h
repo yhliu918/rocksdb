@@ -181,7 +181,7 @@ extern Status ParseInternalKey(const Slice& internal_key,
 
 // Returns the user key portion of an internal key.
 inline Slice ExtractUserKey(const Slice& internal_key) {
-  assert(internal_key.size() >= kNumInternalBytes);
+  //assert(internal_key.size() >= kNumInternalBytes);
   return Slice(internal_key.data(), internal_key.size() - kNumInternalBytes);
 }
 

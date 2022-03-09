@@ -175,6 +175,8 @@ class BlockBasedTable : public TableReader {
 
   // convert SST file to a human readable form
   Status DumpTable(WritableFile* out_file) override;
+  Status DumpTableNew(WritableFile* out_file_key, WritableFile* out_file_offset,
+                      WritableFile* out_file_size);
 
   Status VerifyChecksum(const ReadOptions& readOptions,
                         TableReaderCaller caller) override;
@@ -507,6 +509,9 @@ class BlockBasedTable : public TableReader {
 
   // Helper functions for DumpTable()
   Status DumpIndexBlock(std::ostream& out_stream);
+  Status DumpIndexBlockRaw(std::ostream& out_stream_key,
+                           std::ostream& out_stream_offset,
+                           std::ostream& out_stream_size);
   Status DumpDataBlocks(std::ostream& out_stream);
   void DumpKeyValue(const Slice& key, const Slice& value,
                     std::ostream& out_stream);

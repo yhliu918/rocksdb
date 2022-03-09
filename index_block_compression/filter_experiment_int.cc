@@ -82,22 +82,18 @@ void init(const std::string& key_path, const std::string& db_path,
   // table_options->cache_index_and_filter_blocks = true;
 
   // begin index block tuning
-  table_options->index_block_restart_interval = 2;
+  table_options->index_block_restart_interval = 32;
   table_options->enable_index_compression = false;
   // table_options->format_version = 5;
   // table_options->block_size = 16 * 1024;
   // disable shortest separator
-
   table_options->index_shortening =
       rocksdb::BlockBasedTableOptions::IndexShorteningMode::kShortenSeparators;
-  // kNoShortening
-  // kShortenSeparators
-
 
   options->table_factory.reset(
       rocksdb::NewBlockBasedTableFactory(*table_options));
 
-  options->max_open_files = -1;  // pre-load indexes and filters
+  options->max_open_files = 4;  // pre-load indexes and filters
 
   // 2GB config
   // options->write_buffer_size = 2 * 1048576;
@@ -107,7 +103,7 @@ void init(const std::string& key_path, const std::string& db_path,
   // 100GB config
   // options->write_buffer_size = 64 * 1048576;
   // options->max_bytes_for_level_base = 256 * 1048576;
-  options->target_file_size_base = 64 * 1048576;
+  // options->target_file_size_base = 64 * 1048576;
 
   if (use_direct_io > 0) options->use_direct_reads = true;
 
@@ -131,9 +127,9 @@ void init(const std::string& key_path, const std::string& db_path,
 
     std::cout << "loading timestamp keys\n";
     std::ifstream keyFile(key_path);
-    std::vector<std::string> keys;
+    std::vector<uint64_t> keys;
 
-    std::string key;
+    uint64_t key = 0;
     for (uint64_t i = 0; i < key_count; i++) {
       keyFile >> key;
       keys.push_back(key);
@@ -142,11 +138,8 @@ void init(const std::string& key_path, const std::string& db_path,
     std::cout << "inserting keys\n";
     for (uint64_t i = 0; i < key_count; i++) {
       key = keys[i];
-      //key = htobe64(key);
-      // reverse(key.begin(), key.end());
-
-      rocksdb::Slice s_key(key);
-      // rocksdb::Slice s_key(key.c_str(), key.size());
+      key = htobe64(key);
+      rocksdb::Slice s_key(reinterpret_cast<const char*>(&key), sizeof(key));
       setValueBuffer(value_buf, value_size, e, dist);
       rocksdb::Slice s_value(value_buf, value_size);
 
@@ -172,9 +165,9 @@ void testScan(const std::string& key_path, rocksdb::DB* db,
               uint64_t key_count) {
   std::cout << "testScan: loading timestamp keys\n";
   std::ifstream keyFile(key_path);
-  std::vector< std::string> keys;
+  std::vector<uint64_t> keys;
 
-  std::string key;
+  uint64_t key = 0;
   for (uint64_t i = 0; i < key_count; i++) {
     keyFile >> key;
     keys.push_back(key);
@@ -187,7 +180,7 @@ void testScan(const std::string& key_path, rocksdb::DB* db,
   clock_gettime(CLOCK_MONOTONIC, &ts_start);
 
   for (uint64_t i = 0; i < 1000; i++) {
-    // key = htobe64(keys[i]);
+    key = htobe64(keys[i]);
     std::cerr << std::hex << key << std::endl;
 
     rocksdb::Slice s_key(reinterpret_cast<const char*>(&key), sizeof(key));
@@ -220,8 +213,8 @@ void testScan(const std::string& key_path, rocksdb::DB* db,
 void warmup(const std::string key_path, uint64_t key_count, uint64_t sample_gap,
             rocksdb::DB* db) {
   std::ifstream keyFile(key_path);
-  std::vector< std::string> keys;
-   std::string key;
+  std::vector<uint64_t> keys;
+  uint64_t key = 0;
   for (uint64_t i = 0; i < key_count; i++) {
     keyFile >> key;
     if (i % sample_gap == 0) keys.push_back(key);
@@ -236,7 +229,7 @@ void warmup(const std::string key_path, uint64_t key_count, uint64_t sample_gap,
 
   for (uint64_t i = 0; i < keys.size(); i++) {
     key = keys[i];
-    // key = htobe64(key);
+    key = htobe64(key);
 
     rocksdb::Slice s_key(reinterpret_cast<const char*>(&key), sizeof(key));
     std::string s_value;
@@ -550,15 +543,16 @@ int main(int argc, const char* argv[]) {
   uint64_t warmup_query_count = (uint64_t)atoi(argv[7]);
   uint64_t scan_length = 1;
 
-  //const std::string kKeyPath = "/home/lyh/string_data/email_list/padding_a_prefix.txt";
-  //"/home/zxy/rocksdb/index_block_compression/poisson_timestamps.csv";
-  const std::string kKeyPath = "/home/lyh/string_data/email_list/wholestring_min_12_max_32.txt";
-  // const std::string kKeyPath = "/home/lyh/Learn-to-Compress/scripts/poisson_timestamps_20000.csv";
+  // const std::string kKeyPath =
+  //     "/home/lyh/string_data/email_list/padding_a_wholestring_20M.txt";
+
+  const std::string kKeyPath = "/home/lyh/Learn-to-Compress/scripts/poisson_timestamps_20000.csv";
   const uint64_t kValueSize = 1000;
   const uint64_t kKeyRange = 10000000000000;
   const uint64_t kQueryCount = 50000;
 
   // 2GB config
+ 
   const uint64_t kKeyCount = 2000000;
   const uint64_t kWarmupSampleGap = 100;
 

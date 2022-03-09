@@ -148,6 +148,7 @@ else()
     endif()
     add_definitions(-DSNAPPY)
     list(APPEND THIRDPARTY_LIBS Snappy::snappy)
+    # Ich bin schnappy
   endif()
 
   if(WITH_ZLIB)
@@ -768,6 +769,8 @@ set(SOURCES
         table/block_based/block_based_table_iterator.cc
         table/block_based/block_based_table_reader.cc
         table/block_based/block_builder.cc
+        table/block_based/block_builder_leco.cc
+        table/block_based/leco_uint256.cc
         table/block_based/block_prefetcher.cc
         table/block_based/block_prefix_index.cc
         table/block_based/data_block_hash_index.cc
@@ -987,7 +990,9 @@ if(WITH_LIBRADOS)
     utilities/env_librados.cc)
   list(APPEND THIRDPARTY_LIBS rados)
 endif()
-
+add_library(gprof SHARED IMPORTED)
+set_target_properties(gprof PROPERTIES IMPORTED_LOCATION /usr/lib/x86_64-linux-gnu/libprofiler.so)
+list(APPEND THIRDPARTY_LIBS gmp gmpxx gprof)
 if(WIN32)
   set(SYSTEM_LIBS ${SYSTEM_LIBS} shlwapi.lib rpcrt4.lib)
 else()
@@ -996,7 +1001,7 @@ endif()
 
 add_library(${ROCKSDB_STATIC_LIB} STATIC ${SOURCES} ${BUILD_VERSION_CC})
 target_link_libraries(${ROCKSDB_STATIC_LIB} PRIVATE
-  ${THIRDPARTY_LIBS} ${SYSTEM_LIBS})
+  ${THIRDPARTY_LIBS} ${SYSTEM_LIBS} )
 
 if(ROCKSDB_BUILD_SHARED)
   add_library(${ROCKSDB_SHARED_LIB} SHARED ${SOURCES} ${BUILD_VERSION_CC})

@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <array>
+#include <iostream>
 #include <limits>
 #include <string>
 #include <utility>
@@ -74,9 +75,7 @@ extern const uint64_t kBlockBasedTableMagicNumber;
 extern const std::string kHashIndexPrefixesBlock;
 extern const std::string kHashIndexPrefixesMetadataBlock;
 
-BlockBasedTable::~BlockBasedTable() {
-  delete rep_;
-}
+BlockBasedTable::~BlockBasedTable() { delete rep_; }
 
 std::atomic<uint64_t> BlockBasedTable::next_cache_key_id_(0);
 
@@ -2207,7 +2206,6 @@ bool BlockBasedTable::PrefixMayMatch(
   return may_match;
 }
 
-
 InternalIterator* BlockBasedTable::NewIterator(
     const ReadOptions& read_options, const SliceTransform* prefix_extractor,
     Arena* arena, bool skip_filters, TableReaderCaller caller,
@@ -2379,8 +2377,34 @@ Status BlockBasedTable::Get(const ReadOptions& read_options, const Slice& key,
         rep_->internal_comparator.user_comparator()->timestamp_size();
     bool matched = false;  // if such user key matched a key in SST
     bool done = false;
+
+    // for (iiter->SeekToFirst(); iiter->Valid() && !done; iiter->Next()) {
+    //   // std::cout << "key in hex: ";
+    //   int cnt = 0;
+    //   // auto user_key = ExtractUserKey(iiter->key());
+    //   std::cout << "key size: " << iiter->key().size() << " user key: ";
+    //   // for (const auto& item : user_key.ToString()) {
+    //   //   std::cout << std::hex << int(item);
+    //   // }
+    //   // std::cout << " internal key:";
+    //   for (const auto& item : iiter->key().ToString()) {
+    //     std::cout << std::hex << int(item);
+    //   }
+    //   std::cout << " string:" << iiter->key().ToString();
+    //   std::cout << std::endl;
+    // }
+    // std::cout << "finish iterating an index block" << std::endl;
     for (iiter->Seek(key); iiter->Valid() && !done; iiter->Next()) {
       IndexValue v = iiter->value();
+      // std::cout << "find key size: " << iiter->key().size() << " user key: ";
+      // for (const auto& item : iiter->key().ToString()) {
+      //   std::cout << std::hex << int(item);
+      // }
+      // std::cout << " seek key size: " << key.size() << " user key: ";
+      // for (const auto& item : key.ToString()) {
+      //   std::cout << std::hex << int(item);
+      // }
+      std::cout << std::endl;
 
       bool not_exist_in_filter =
           filter != nullptr && filter->IsBlockBased() == true &&
@@ -3376,6 +3400,27 @@ Status BlockBasedTable::GetKVPairsFromDataBlocks(
   return Status::OK();
 }
 
+// NOTE(xinyu): new function.
+Status BlockBasedTable::DumpTableNew(WritableFile* out_file_key,
+                                     WritableFile* out_file_offset,
+                                     WritableFile* out_file_size) {
+  WritableFileStringStreamAdapter out_file_wrapper1(out_file_key);
+  std::ostream out_stream1(&out_file_wrapper1);
+  WritableFileStringStreamAdapter out_file_wrapper2(out_file_offset);
+  std::ostream out_stream2(&out_file_wrapper2);
+  WritableFileStringStreamAdapter out_file_wrapper3(out_file_size);
+  std::ostream out_stream3(&out_file_wrapper3);
+
+  Status s;
+  s = DumpIndexBlockRaw(out_stream1, out_stream2, out_stream3);
+
+  if (!s.ok()) {
+    return s;
+  }
+
+  return Status::OK();
+}
+
 Status BlockBasedTable::DumpTable(WritableFile* out_file) {
   WritableFileStringStreamAdapter out_file_wrapper(out_file);
   std::ostream out_stream(&out_file_wrapper);
@@ -3536,6 +3581,64 @@ Status BlockBasedTable::DumpIndexBlock(std::ostream& out_stream) {
     out_stream << "  ------\n";
   }
   out_stream << "\n";
+  return Status::OK();
+}
+
+// NOTE(xinyu): new function.
+Status BlockBasedTable::DumpIndexBlockRaw(std::ostream& out_stream_key,
+                                          std::ostream& out_stream_offset,
+                                          std::ostream& out_stream_size) {
+  // out_stream << "Index Details:\n"
+  //               "--------------------------------------\n";
+  std::unique_ptr<InternalIteratorBase<IndexValue>> blockhandles_iter(
+      NewIndexIterator(ReadOptions(), /*need_upper_bound_check=*/false,
+                       /*input_iter=*/nullptr, /*get_context=*/nullptr,
+                       /*lookup_contex=*/nullptr));
+  Status s = blockhandles_iter->status();
+  if (!s.ok()) {
+    out_stream_key << "Can not read Index Block \n\n";
+    return s;
+  }
+
+  // out_stream << "  Block key hex dump: Data block handle\n";
+  // out_stream << "  Block key ascii\n\n";
+  for (blockhandles_iter->SeekToFirst(); blockhandles_iter->Valid();
+       blockhandles_iter->Next()) {
+    s = blockhandles_iter->status();
+    if (!s.ok()) {
+      break;
+    }
+    Slice key = blockhandles_iter->key();
+    Slice user_key;
+    InternalKey ikey;
+    if (!rep_->index_key_includes_seq) {
+      user_key = key;
+    } else {
+      ikey.DecodeFrom(key);
+      user_key = ikey.user_key();
+    }
+
+    // NOTE(xinyu): we do not consider index_has_first_key=true
+    out_stream_key << user_key.ToString(false) << "\n";
+    out_stream_offset << blockhandles_iter->value().handle.offset() << "\n";
+    out_stream_size << blockhandles_iter->value().handle.size() << "\n";
+    // out_stream << "  HEX    " << user_key.ToString(true) << ": "
+    //            << blockhandles_iter->value().handle.offset() << " "
+    //            << blockhandles_iter->value().handle.size() << "\n";
+
+    // std::string str_key = user_key.ToString();
+    // std::string res_key("");
+    // char cspace = ' ';
+    // for (size_t i = 0; i < str_key.size(); i++) {
+    //   res_key.append(&str_key[i], 1);
+    //   res_key.append(1, cspace);
+    // }
+    // out_stream << "  ASCII  " << res_key << "\n";
+    // out_stream << "  ------\n";
+  }
+  out_stream_key << "\n";
+  out_stream_offset << "\n";
+  out_stream_size << "\n";
   return Status::OK();
 }
 
