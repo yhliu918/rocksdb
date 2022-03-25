@@ -459,6 +459,7 @@ struct BlockBasedTableBuilder::Rep {
     for (uint32_t i = 0; i < compression_opts.parallel_threads; i++) {
       compression_ctxs[i].reset(new CompressionContext(compression_type));
     }
+
     if (table_options.index_type ==
         BlockBasedTableOptions::kTwoLevelIndexSearch) {
       p_index_builder_ = PartitionedIndexBuilder::CreateIndexBuilder(
@@ -909,6 +910,7 @@ void BlockBasedTableBuilder::Add(const Slice& key, const Slice& value) {
       assert(!r->data_block.empty());
       r->first_key_in_next_block = &key;
       Flush();
+      // make a data block 
       if (r->state == Rep::State::kBuffered) {
         bool exceeds_buffer_limit =
             (r->buffer_limit != 0 && r->data_begin_offset > r->buffer_limit);
@@ -961,6 +963,7 @@ void BlockBasedTableBuilder::Add(const Slice& key, const Slice& value) {
       }
     }
 
+    //std::cout<<"data block ";
     r->data_block.AddWithLastKey(key, value, r->last_key);
     r->last_key.assign(key.data(), key.size());
     if (r->state == Rep::State::kBuffered) {
@@ -1025,6 +1028,7 @@ void BlockBasedTableBuilder::WriteBlock(BlockBuilder* block,
   std::string raw_block_contents;
   raw_block_contents.reserve(rep_->table_options.block_size);
   block->SwapAndReset(raw_block_contents);
+  // Above store the block content into raw_block_content and reset the block.
   if (rep_->state == Rep::State::kBuffered) {
     assert(block_type == BlockType::kData);
     rep_->data_block_buffers.emplace_back(std::move(raw_block_contents));
@@ -1235,6 +1239,7 @@ void BlockBasedTableBuilder::WriteRawBlock(const Slice& block_contents,
         // Extend to cover compression type
         crc = crc32c::Extend(crc, trailer, 1);
         checksum = crc32c::Mask(crc);
+        //std::cout<<"block size "<<block_contents.size()<<" block handle ("<<handle->offset()<<", "<<handle->size()<<") crc "<<crc<<" checksum "<<checksum<<std::endl;
         break;
       }
       case kxxHash: {
@@ -1602,7 +1607,7 @@ void BlockBasedTableBuilder::WriteIndexBlock(
   IndexBuilder::IndexBlocks index_blocks;
   auto index_builder_status = rep_->index_builder->Finish(&index_blocks);
   if (index_builder_status.IsIncomplete()) {
-    // We we have more than one index partition then meta_blocks are not
+    // When we have more than one index partition then meta_blocks are not
     // supported for the index. Currently meta_blocks are used only by
     // HashIndexBuilder which is not multi-partition.
     assert(index_blocks.meta_blocks.empty());

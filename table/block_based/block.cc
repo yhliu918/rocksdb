@@ -399,6 +399,7 @@ void IndexBlockIter::SeekImpl(const Slice& target) {
     skip_linear_scan = true;
   } else if (using_leco_encode_) {
     ok = BinarySeek_leco<leco_t>(seek_key, &index);
+    // std::cout<< "key "<< seek_key.ToString() << " index " << index << std::endl;
     skip_linear_scan = true;
     if (!ok) {
       status_ = Status::NotFound();
@@ -463,7 +464,12 @@ void IndexBlockIter::SeekToFirstImpl() {
   if (data_ == nullptr) {  // Not init yet
     return;
   }
+  
   status_ = Status::OK();
+  if(using_leco_encode_){
+    ParseValue_leco(0);
+    return;
+  }
   SeekToRestartPoint(0);
   ParseNextIndexKey();
 }
@@ -562,6 +568,10 @@ bool DataBlockIter::ParseNextDataKey(const char* limit) {
 }
 
 bool IndexBlockIter::ParseNextIndexKey() {
+  if(this->using_leco_encode_){
+    current_++;
+    return ParseValue_leco(current_);
+  }
   current_ = NextEntryOffset();
   const char* p = data_ + current_;
   const char* limit = data_ + restarts_;  // Restarts come right after data
@@ -609,8 +619,15 @@ bool IndexBlockIter::ParseNextIndexKey() {
 
 template <class TValue>
 bool BlockIter<TValue>::ParseValue_leco(int index) {
+  current_ = index;
+  
   uint32_t N;
   N = reinterpret_cast<const uint32_t*>(data_)[0];
+  if(current_>=N){
+    valid_ = false;
+    return false;
+  }
+  // std::cout<<"indexing: "<<index<<" / "<<N<<std::endl;
   int block_number = N / block_size_;
   while (block_size_ * block_number < N)
   {
@@ -619,7 +636,7 @@ bool BlockIter<TValue>::ParseValue_leco(int index) {
   uint32_t data_size = reinterpret_cast<const uint32_t*>(data_)[1];
   uint32_t off_size = reinterpret_cast<const uint32_t*>(data_)[2];
   int index_block_num = index / block_size_;
-  int data_offset = sizeof(uint32_t)*(5 + block_number);
+  int data_offset = sizeof(uint32_t)*(4 + block_number);
   int block_offset = sizeof(uint32_t)*(4 + index_block_num);
   // decode the index_block_num'th block offset
    
@@ -631,11 +648,18 @@ bool BlockIter<TValue>::ParseValue_leco(int index) {
   uint64_t size_val;
   randomdecodeArray8_integer(data_ + off_size + data_offset + size_val_off, index % block_size_, &size_val, index_block_num);
   //std::cout<<offset_val_off<<" "<<size_val_off<<" "<<offset_val<<" "<<size_val<<std::endl;
-  std::string v;
-  PutFixed64(&v, offset_val);
-  PutFixed64(&v, size_val);
-
-  value_ = Slice(v);
+  // std::string v;
+  // PutFixed64(&v, offset_val);
+  // PutFixed64(&v, size_val);
+  // value_ = Slice(v);
+  offset_ = offset_val;
+  size_ = size_val;
+  // std::cout<<"index "<<index<<" offset "<<offset_<<" size "<<size_<<std::endl;
+  // uint64_t offset, size;
+  // GetFixed64(&value_,&offset);
+  // GetFixed64(&value_,&size);
+  // std::cout<<offset<<" "<<size<<std::endl;
+  // TODO: verify the value
 
   return true;
 }
@@ -799,8 +823,14 @@ bool pre_Bsearch(int left, int right, int* index, const char * key,
     while (left != right) {
       // The `mid` is computed by rounding up so it lands in (`left`, `right`].
       int64_t mid = left + (right - left + 1) / 2;
-      int cmp = strncmp(firstkey_each_block + mid * string_len, key,
+      
+      
+      
+      int cmp = strncmp(firstkey_each_block + mid * string_len + 1, key,
                        search_len);
+      // std::string string_comp(firstkey_each_block + mid * string_len + 1, search_len);
+      // std::cout<<"comparing with "<<string_comp<<std::endl;
+      // need another length info when storing each first key.
 
       if (cmp<0) {
         // Key at "mid" is smaller than "target". Therefore all
@@ -811,8 +841,20 @@ bool pre_Bsearch(int left, int right, int* index, const char * key,
         // after "mid" are uninteresting.
         right = mid - 1;
       } else {
-        *skip_linear_scan = true;
-        left = right = mid;
+        uint8_t first_key_length = reinterpret_cast<const uint8_t*>(firstkey_each_block+ mid * string_len)[0];
+        
+        if(search_len == first_key_length){
+          *skip_linear_scan = true; 
+          // because if the key diff with the first key only of length, skiping linear scan would be wrong
+          left = right = mid;
+        }
+        else if(search_len< first_key_length){
+            right = mid - 1;
+        }
+        else{
+            left = mid;
+        }
+        
       }
     }
 
@@ -833,7 +875,7 @@ bool pre_Bsearch(int left, int right, int* index, const char * key,
 // default option kShortestSeparator ), include_first_key = true TOTAL
 // COMPONENT:
 // 0. max_padding_length [uint8_t]
-// 1. first key (if with_first_key) [max_padding_length * block_num]
+// 1. first key (if with_first_key) [(max_padding_length+1) * block_num]
 // 2.(deprecated) each block string length after padding (if with_first_key & padding_enable) [uint8_t * block_num]
 // 3.(deprecated) origin string length (if with_first_key & padding_enable) [uint8_t * N]
 // 4. start_byte [int * block_num]
@@ -851,7 +893,7 @@ bool BlockIter<TValue>::BinarySeek_leco(Slice& target, uint32_t* index) {
   }
   int data_offset = sizeof(uint32_t) * 4;
   uint8_t max_padding_length;
-  std::string firstkey_each_block;
+
   int interval = (block_size_/key_num_per_block_);
   int total_firstkey_num = N/interval;
   if(N % interval) {
@@ -860,7 +902,7 @@ bool BlockIter<TValue>::BinarySeek_leco(Slice& target, uint32_t* index) {
   if (padding_enable_) {
     max_padding_length = reinterpret_cast<const uint8_t*>(data_)[data_offset];
     data_offset += sizeof(uint8_t);
-    data_offset += total_firstkey_num * max_padding_length;
+    data_offset += total_firstkey_num * (max_padding_length+sizeof(uint8_t));
   }
   // origin string length[i] = data_[data_offset + i]
   // start_byte[block_ind] = data_[data_offset + N + block_ind * 4]
@@ -872,7 +914,7 @@ bool BlockIter<TValue>::BinarySeek_leco(Slice& target, uint32_t* index) {
   int index_search = 0;
   if (padding_enable_) {
     pre_Bsearch(-1, total_firstkey_num - 1, &index_search, target.data(), &skip_linear,
-                max_padding_length, data_+sizeof(uint32_t) * 4+sizeof(uint8_t), target.size());
+                max_padding_length+sizeof(uint8_t), data_+sizeof(uint32_t) * 4+sizeof(uint8_t), target.size());
   }
   if (!skip_linear) {
     T record = convertToASCII_char<T>(target.data(), target.size());
@@ -890,7 +932,7 @@ bool BlockIter<TValue>::BinarySeek_leco(Slice& target, uint32_t* index) {
 
     while (left != right) {
       // The `mid` is computed by rounding up so it lands in (`left`, `right`].
-      int mid = (left + right)/ 2 + 1;
+      int mid = left + (right - left + 1) / 2;
       int mid_block = mid / block_size_;
       
       int start_byte = reinterpret_cast<const int*>(data_ + data_offset + mid_block * 4)[0];
@@ -916,12 +958,17 @@ bool BlockIter<TValue>::BinarySeek_leco(Slice& target, uint32_t* index) {
         left = mid;
       }
     }
+    *index = static_cast<uint32_t>(left);
     
   }
+  else{
+    *index = index_search * interval;
+  }
+  
 
   // std::cout<<"target_str: "<<target_str<<std::endl;
 
-  return false;
+  return true;
 }
 // Compare target key and the block key of the block of `block_index`.
 // Return -1 if error.
@@ -1111,6 +1158,15 @@ Block::Block(BlockContents&& contents, size_t read_amp_bytes_per_bit,
     num_restarts_ = NumRestarts();
     switch (IndexType()) {
       case BlockBasedTableOptions::kDataBlockLeco:
+        // if(num_restarts_ > 1){
+        //   break;
+        // }
+        // else{
+        //   num_restarts_ = 1;
+        //   restart_offset_ = static_cast<uint32_t>(size_) -
+        //                   (1 + num_restarts_) * sizeof(uint32_t);
+        // }
+        
         break;
       case BlockBasedTableOptions::kDataBlockBinarySearch:
         restart_offset_ = static_cast<uint32_t>(size_) -

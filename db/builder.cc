@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <deque>
 #include <vector>
+#include <iostream>
 
 #include "db/blob/blob_file_builder.h"
 #include "db/compaction/compaction_iterator.h"
@@ -198,8 +199,10 @@ Status BuildTable(
         /*manual_compaction_canceled=*/nullptr, db_options.info_log,
         full_history_ts_low);
 
+    int counter = 0;
     c_iter.SeekToFirst();
     for (; c_iter.Valid(); c_iter.Next()) {
+      counter++;
       const Slice& key = c_iter.key();
       const Slice& value = c_iter.value();
       const ParsedInternalKey& ikey = c_iter.ikey();
@@ -220,6 +223,7 @@ Status BuildTable(
             ThreadStatus::FLUSH_BYTES_WRITTEN, IOSTATS(bytes_written));
       }
     }
+    std::cout<<"counter: "<<counter<<std::endl;
     if (!s.ok()) {
       c_iter.status().PermitUncheckedError();
     } else if (!c_iter.status().ok()) {

@@ -186,7 +186,7 @@ inline void read_all_fix_string(uint8_t *in, int start_byte, int start_index, in
 }
 
 template <typename T>
-void read_bit_fix_string(const uint8_t *in, uint32_t l, int to_find, T theta1, T theta0, T *result, uint8_t* ori_length)
+void read_bit_fix_string(const uint8_t *in, uint32_t l, uint32_t to_find, T theta1, T theta0, T *result, uint8_t* ori_length)
 {
   uint64_t find_bit = to_find * (l+8);
   uint64_t start_byte = find_bit / 8;
@@ -374,7 +374,7 @@ inline void read_all_bit_fix(uint8_t *in, int start_byte, int start_index, int n
   }
 }
 
-inline void read_bit_fix_char(const char *in, int l, int to_find, double slope,
+inline void read_bit_fix_char(const uint8_t *in, int l, int to_find, double slope,
                       double start_key, int start, uint64_t * out) {
   int find_bit = to_find * l;
   int start_byte = start + find_bit / 8;
@@ -383,7 +383,7 @@ inline void read_bit_fix_char(const char *in, int l, int to_find, double slope,
   long long decode = 0;
   int total = 0;
   while (total < l) {
-    decode += ((in[start_byte] >> occupy) << total);
+    decode += ((uint64_t)(in[start_byte] >> occupy) << total);
     total += (8 - occupy);
     occupy = 0;
     start_byte++;

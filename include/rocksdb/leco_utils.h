@@ -19,7 +19,11 @@ void caltheta(std::vector<int>& x, std::vector<long_int>& y, int m){
         sumxx = sumxx+x[i]*x[i];
         sumxy = sumxy+x[i]*y[i];
     }
-    
+    if(m == 1){
+        theta0 = y[0];
+        theta1 = 0;
+        return;
+    }
     long_int ccc= sumxy * m - sumx * sumy;
     long_int xxx = sumxx * m - sumx * sumx;
 

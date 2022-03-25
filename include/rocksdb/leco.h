@@ -24,7 +24,7 @@ class Leco_string {
       if (i == blocks - 1) {
         block_length = N - (blocks - 1) * block_size;
       }
-      size_t max_length = 0;
+      uint8_t max_length = 0;
 
       for (int j = 0; j < block_length; j++) {
         totalsize_without_padding += string_vec[i * block_size + j].size();
@@ -91,7 +91,7 @@ class Leco_string {
     std::vector<T> delta;
     std::vector<bool> signvec;
     T max_delta = 0;
-    for (auto i = 0; i < length; i++) {
+    for (uint32_t i = 0; i < length; i++) {
       T tmp_val;
 
       T pred = theta0 + theta1 * i;
@@ -306,6 +306,7 @@ class Leco_integral {
         max_error = abs(tmp);
       }
     }
+    //std::cout<<"delta[1] "<<delta[1]<<std::endl;
     int tmp_bit = bits_T<uint64_t>(max_error) + 1;
 
     out[0] = (uint8_t)tmp_bit;
@@ -350,7 +351,7 @@ inline void randomdecodeArray8_integer(const char* in, const size_t l,
   double theta0;
   double theta1;
   uint8_t maxerror;
-  const char* tmpin = in;
+  const uint8_t* tmpin = reinterpret_cast<const uint8_t*>(in);
   memcpy(&maxerror, tmpin, 1);
   tmpin++;
   memcpy(&theta0, tmpin, 8);

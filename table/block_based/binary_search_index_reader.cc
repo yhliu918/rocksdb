@@ -63,7 +63,8 @@ InternalIteratorBase<IndexValue>* BinarySearchIndexReader::NewIterator(
   auto it = index_block.GetValue()->NewIndexIterator(
       internal_comparator()->user_comparator(),
       rep->get_global_seqno(BlockType::kIndex), iter, kNullStats, true,
-      index_has_first_key(), index_key_includes_seq(), index_value_is_full());
+      index_has_first_key(), index_key_includes_seq(), index_value_is_full(),false, nullptr, (rep->index_type == BlockBasedTableOptions::IndexType::kBinarySearchLeco), rep->table_options.leco_block_size, rep->table_options.padding_enable, rep->table_options.key_num_per_block);
+
 
   assert(it != nullptr);
   index_block.TransferTo(it);

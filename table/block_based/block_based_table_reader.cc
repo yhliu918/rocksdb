@@ -95,7 +95,7 @@ Status ReadBlockFromFile(
     const UncompressionDict& uncompression_dict,
     const PersistentCacheOptions& cache_options, size_t read_amp_bytes_per_bit,
     MemoryAllocator* memory_allocator, bool for_compaction, bool using_zstd,
-    const FilterPolicy* filter_policy) {
+    const FilterPolicy* filter_policy, bool using_leco = false) {
   assert(result);
 
   BlockContents contents;
@@ -107,7 +107,7 @@ Status ReadBlockFromFile(
   if (s.ok()) {
     result->reset(BlocklikeTraits<TBlocklike>::Create(
         std::move(contents), read_amp_bytes_per_bit, ioptions.stats, using_zstd,
-        filter_policy));
+        filter_policy, using_leco));
   }
 
   return s;
@@ -561,6 +561,7 @@ Status BlockBasedTable::Open(
   ReadOptions ro;
   ro.deadline = read_options.deadline;
   ro.io_timeout = read_options.io_timeout;
+
 
   // prefetch both index and filters, down to all partitions
   const bool prefetch_all = prefetch_index_and_filter_in_cache || level == 0;
@@ -1993,7 +1994,7 @@ Status BlockBasedTable::RetrieveBlock(
             : 0,
         GetMemoryAllocator(rep_->table_options), for_compaction,
         rep_->blocks_definitely_zstd_compressed,
-        rep_->table_options.filter_policy.get());
+        rep_->table_options.filter_policy.get(), (rep_->table_options.index_type == BlockBasedTableOptions::IndexType::kBinarySearchLeco && block_type == BlockType::kIndex));
 
     if (get_context) {
       switch (block_type) {
@@ -2404,7 +2405,7 @@ Status BlockBasedTable::Get(const ReadOptions& read_options, const Slice& key,
       // for (const auto& item : key.ToString()) {
       //   std::cout << std::hex << int(item);
       // }
-      std::cout << std::endl;
+      // std::cout << std::endl;
 
       bool not_exist_in_filter =
           filter != nullptr && filter->IsBlockBased() == true &&
@@ -3187,11 +3188,16 @@ Status BlockBasedTable::CreateIndexReader(
   // properties, turn off Hash Index by setting total_order_seek to true
 
   switch (rep_->index_type) {
+    
+
+
     case BlockBasedTableOptions::kTwoLevelIndexSearch: {
       return PartitionIndexReader::Create(this, ro, prefetch_buffer, use_cache,
                                           prefetch, pin, lookup_context,
                                           index_reader);
     }
+    case BlockBasedTableOptions::kBinarySearchLeco:
+      FALLTHROUGH_INTENDED;
     case BlockBasedTableOptions::kBinarySearch:
       FALLTHROUGH_INTENDED;
     case BlockBasedTableOptions::kBinarySearchWithFirstKey: {

@@ -204,6 +204,7 @@ struct BlockBasedTableOptions {
     // Makes the index significantly bigger (2x or more), especially when keys
     // are long.
     kBinarySearchWithFirstKey = 0x03,
+    kBinarySearchLeco = 0x04
   };
 
   IndexType index_type = kBinarySearch;
@@ -215,7 +216,7 @@ struct BlockBasedTableOptions {
     kDataBlockLeco = 2,            // LECO block type
   };
 
-  DataBlockIndexType data_block_index_type = kDataBlockBinarySearch;
+  DataBlockIndexType data_block_index_type = kDataBlockBinarySearch; // TODO: set this value as KDataBlockLeco
 
   // #entries/#buckets. It is valid only when data_block_hash_index_type is
   // kDataBlockBinaryAndHash.
@@ -344,6 +345,17 @@ struct BlockBasedTableOptions {
   // algorithms.
   bool verify_compression = false;
 
+  // below is arguments for Leco
+  bool padding_enable = true;
+
+  int leco_block_size = 64; // leco compression are applied block wise
+
+  int total_length = 1024; // how many keys are in this block
+
+  int key_num_per_block = 8; // the number of uncompressed keys stored in this block
+
+  // leco arguments finish
+  
   // If used, For every data block we load into memory, we will create a bitmap
   // of size ((block_size / `read_amp_bytes_per_bit`) / 8) bytes. This bitmap
   // will be used to figure out the percentage we actually read of the blocks.

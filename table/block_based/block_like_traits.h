@@ -46,7 +46,8 @@ class BlocklikeTraits<BlockContents> {
                                size_t /* read_amp_bytes_per_bit */,
                                Statistics* /* statistics */,
                                bool /* using_zstd */,
-                               const FilterPolicy* /* filter_policy */) {
+                               const FilterPolicy* /* filter_policy */,
+                               bool using_leco = false) {
     return new BlockContents(std::move(contents));
   }
 
@@ -90,7 +91,8 @@ class BlocklikeTraits<ParsedFullFilterBlock> {
                                        size_t /* read_amp_bytes_per_bit */,
                                        Statistics* /* statistics */,
                                        bool /* using_zstd */,
-                                       const FilterPolicy* filter_policy) {
+                                       const FilterPolicy* filter_policy,
+                                       bool using_leco = false) {
     return new ParsedFullFilterBlock(filter_policy, std::move(contents));
   }
 
@@ -127,9 +129,9 @@ template <>
 class BlocklikeTraits<Block> {
  public:
   static Block* Create(BlockContents&& contents, size_t read_amp_bytes_per_bit,
-                       Statistics* statistics, bool /* using_zstd */,
-                       const FilterPolicy* /* filter_policy */) {
-    return new Block(std::move(contents), read_amp_bytes_per_bit, statistics);
+                       Statistics* statistics, bool using_zstd,
+                       const FilterPolicy*  filter_policy, bool using_leco = false) {
+    return new Block(std::move(contents), read_amp_bytes_per_bit, statistics, using_leco);
   }
 
   static uint32_t GetNumRestarts(const Block& block) {
@@ -179,7 +181,8 @@ class BlocklikeTraits<UncompressionDict> {
                                    size_t /* read_amp_bytes_per_bit */,
                                    Statistics* /* statistics */,
                                    bool using_zstd,
-                                   const FilterPolicy* /* filter_policy */) {
+                                   const FilterPolicy* /* filter_policy */,
+                                   bool using_leco = false) {
     return new UncompressionDict(contents.data, std::move(contents.allocation),
                                  using_zstd);
   }

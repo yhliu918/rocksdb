@@ -1305,11 +1305,17 @@ void CompactionJob::ProcessKeyValueCompaction(SubcompactionState* sub_compact) {
           : sub_compact->compaction->CreateSstPartitioner();
   std::string last_key_for_partitioner;
 
+  int counter = 0;
   while (status.ok() && !cfd->IsDropped() && c_iter->Valid()) {
     // Invariant: c_iter.status() is guaranteed to be OK if c_iter->Valid()
     // returns true.
+    // if(counter >= 18208) {
+    //   std::cout << "counter: " << counter << std::endl;
+    // }
     const Slice& key = c_iter->key();
     const Slice& value = c_iter->value();
+    //std::cout<<counter<<" "<<key.ToString()<<std::endl;
+    counter++;
 
     assert(!end ||
            cfd->user_comparator()->Compare(c_iter->user_key(), *end) < 0);

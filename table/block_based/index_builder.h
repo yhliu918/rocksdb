@@ -15,10 +15,12 @@
 #include <list>
 #include <string>
 #include <unordered_map>
+#include <iostream>
 
 #include "rocksdb/comparator.h"
 #include "table/block_based/block_based_table_factory.h"
 #include "table/block_based/block_builder.h"
+#include "table/block_based/block_builder_leco.h"
 #include "table/format.h"
 
 namespace ROCKSDB_NAMESPACE {
@@ -149,7 +151,9 @@ class ShortenedIndexBuilder : public IndexBuilder {
   virtual void AddIndexEntry(std::string* last_key_in_current_block,
                              const Slice* first_key_in_next_block,
                              const BlockHandle& block_handle) override {
+    
     if (first_key_in_next_block != nullptr) {
+      //std::cout<<*last_key_in_current_block<<" "<<first_key_in_next_block->ToString()<<std::endl;
       if (shortening_mode_ !=
           BlockBasedTableOptions::IndexShorteningMode::kNoShortening) {
         comparator_->FindShortestSeparator(last_key_in_current_block,
@@ -183,8 +187,10 @@ class ShortenedIndexBuilder : public IndexBuilder {
     }
     last_encoded_handle_ = block_handle;
     const Slice delta_encoded_entry_slice(delta_encoded_entry);
+    //std::cout<<"index block ";
     index_block_builder_.Add(sep, encoded_entry, &delta_encoded_entry_slice);
     if (!seperator_is_key_plus_seq_) {
+      //std::cout<<"index block without seq ";
       index_block_builder_without_seq_.Add(ExtractUserKey(sep), encoded_entry,
                                            &delta_encoded_entry_slice);
     }
@@ -443,98 +449,71 @@ class PartitionedIndexBuilder : public IndexBuilder {
 };
 
 // a new index builder for Leco-style index
-// class LecoIndexBuilder : public IndexBuilder {
-//  public:
-//   explicit LecoIndexBuilder(
-//       const InternalKeyComparator* comparator,
-//       const int index_block_restart_interval, const uint32_t format_version,
-//       const bool use_value_delta_encoding,
-//       BlockBasedTableOptions::IndexShorteningMode shortening_mode,
-//       bool include_first_key)
-//       : IndexBuilder(comparator),
-//         index_block_builder_(index_block_restart_interval,
-//                              true /*use_delta_encoding*/,
-//                              use_value_delta_encoding),
-//         include_first_key_(include_first_key),
-//         shortening_mode_(shortening_mode) {
-//           // format_version is not used in LecoIndexBuilder
-//   }
+class LecoIndexBuilder : public IndexBuilder {
+ public:
 
-//   virtual void OnKeyAdded(const Slice& key) override {
-//     if (include_first_key_ && current_block_first_internal_key_.empty()) {
-//       current_block_first_internal_key_.assign(key.data(), key.size());
-//     }
-//   }
+  explicit LecoIndexBuilder(
+      const InternalKeyComparator* comparator,
+      BlockBasedTableOptions::IndexShorteningMode shortening_mode,
+      bool include_first_key,
+      bool padding_enabled,
+      int block_size,
+      int totalNum,
+      int key_num_per_block)
+      : IndexBuilder(comparator),
+        index_block_builder_(padding_enabled, block_size, totalNum, key_num_per_block),
+        shortening_mode_(shortening_mode),
+        include_first_key_(include_first_key) {
+          // format_version is not used in LecoIndexBuilder
+  }
 
-//   virtual void AddIndexEntry(std::string* last_key_in_current_block,
-//                              const Slice* first_key_in_next_block,
-//                              const BlockHandle& block_handle) override {
-//     if (first_key_in_next_block != nullptr) {
-//       if (shortening_mode_ !=
-//           BlockBasedTableOptions::IndexShorteningMode::kNoShortening) {
-//         comparator_->FindShortestSeparator(last_key_in_current_block,
-//                                            *first_key_in_next_block);
-//       }
-//     } else {
-//       if (shortening_mode_ == BlockBasedTableOptions::IndexShorteningMode::
-//                                   kShortenSeparatorsAndSuccessor) {
-//         comparator_->FindShortSuccessor(last_key_in_current_block);
-//       }
-//     }
-//     auto sep = Slice(*last_key_in_current_block);
 
-//     assert(!include_first_key_ || !current_block_first_internal_key_.empty());
-//     IndexValue entry(block_handle, current_block_first_internal_key_);
-//     std::string encoded_entry;
-//     std::string delta_encoded_entry;
-//     entry.EncodeTo(&encoded_entry, include_first_key_, nullptr);
-//     if (use_value_delta_encoding_ && !last_encoded_handle_.IsNull()) {
-//       entry.EncodeTo(&delta_encoded_entry, include_first_key_,
-//                      &last_encoded_handle_);
-//     } else {
-//       // If it's the first block, or delta encoding is disabled,
-//       // BlockBuilder::Add() below won't use delta-encoded slice.
-//     }
-//     last_encoded_handle_ = block_handle;
-//     const Slice delta_encoded_entry_slice(delta_encoded_entry);
-//     index_block_builder_.Add(sep, encoded_entry, &delta_encoded_entry_slice);
-//     if (!seperator_is_key_plus_seq_) {
-//       index_block_builder_without_seq_.Add(ExtractUserKey(sep), encoded_entry,
-//                                            &delta_encoded_entry_slice);
-//     }
+  virtual void AddIndexEntry(std::string* last_key_in_current_block,
+                             const Slice* first_key_in_next_block,
+                             const BlockHandle& block_handle) override {
+    
+    if (first_key_in_next_block != nullptr) {
+      //std::cout<<*last_key_in_current_block<< " "<< first_key_in_next_block->ToString()<<std::endl;
+      if (shortening_mode_ !=
+          BlockBasedTableOptions::IndexShorteningMode::kNoShortening) {
+        comparator_->FindShortestSeparator(last_key_in_current_block,
+                                           *first_key_in_next_block);
+      }
+    } else {
+      if (shortening_mode_ == BlockBasedTableOptions::IndexShorteningMode::
+                                  kShortenSeparatorsAndSuccessor) {
+        comparator_->FindShortSuccessor(last_key_in_current_block);
+      }
+    }
+    auto sep = Slice(*last_key_in_current_block);
 
-//     current_block_first_internal_key_.clear();
-//   }
+    IndexValue entry(block_handle, *last_key_in_current_block);
+    std::string encoded_entry;
+    entry.EncodeTo(&encoded_entry, include_first_key_, nullptr);
+    Slice encoded_entry_slice(encoded_entry);
+    index_block_builder_.Add(sep, encoded_entry_slice);
 
-//   using IndexBuilder::Finish;
-//   virtual Status Finish(
-//       IndexBlocks* index_blocks,
-//       const BlockHandle& /*last_partition_block_handle*/) override {
-//     if (seperator_is_key_plus_seq_) {
-//       index_blocks->index_block_contents = index_block_builder_.Finish();
-//     } else {
-//       index_blocks->index_block_contents =
-//           index_block_builder_without_seq_.Finish();
-//     }
-//     index_size_ = index_blocks->index_block_contents.size();
-//     return Status::OK();
-//   }
+  }
 
-//   virtual size_t IndexSize() const override { return index_size_; }
+  using IndexBuilder::Finish;
+  virtual Status Finish(
+      IndexBlocks* index_blocks,
+      const BlockHandle& /*last_partition_block_handle*/) override {
 
-//   virtual bool seperator_is_key_plus_seq() override {
-//     return seperator_is_key_plus_seq_;
-//   }
+    index_blocks->index_block_contents = index_block_builder_.Finish();
+    index_size_ = index_blocks->index_block_contents.size();
+    return Status::OK();
+  }
 
-//   friend class PartitionedIndexBuilder;
+  virtual size_t IndexSize() const override { return index_size_; }
 
-//  private:
-//   BlockBuilder index_block_builder_;
-//   const bool include_first_key_;
-//   BlockBasedTableOptions::IndexShorteningMode shortening_mode_; // compression upon shortening version or not
-//   BlockHandle last_encoded_handle_ = BlockHandle::NullBlockHandle();
-//   std::string current_block_first_internal_key_;
-// };
+
+ private:
+  BlockBuilder_leco index_block_builder_;
+  BlockBasedTableOptions::IndexShorteningMode shortening_mode_; // compression upon shortening version or not
+  const bool include_first_key_;
+
+};
 
 
 }  // namespace ROCKSDB_NAMESPACE

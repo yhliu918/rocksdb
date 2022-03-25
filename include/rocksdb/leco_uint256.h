@@ -122,7 +122,7 @@ public:
   leco_uint256 &operator=(leco_uint256 &&rhs) = default;
   template <typename T, typename = typename std::enable_if<
                             std::is_integral<T>::value, T>::type>
-  leco_uint256 &operator=(const T &rhs)
+  inline leco_uint256 &operator=(const T &rhs)
   {
     UPPER = leco_uint128_0;
 
@@ -137,7 +137,7 @@ public:
     LOWER = rhs;
     return *this;
   }
-  leco_uint256 &operator=(const bool &rhs)
+  inline leco_uint256 &operator=(const bool &rhs)
   {
     UPPER = 0;
     LOWER = rhs;
@@ -145,7 +145,7 @@ public:
   }
 
   // Arithmetic Operators
-  leco_uint256 operator+(const leco_uint256 &rhs) const
+  inline leco_uint256 operator+(const leco_uint256 &rhs) const
   {
     return leco_uint256(UPPER + rhs.UPPER + ((LOWER + rhs.LOWER) < LOWER),
                         LOWER + rhs.LOWER);
@@ -153,13 +153,13 @@ public:
 
   template <typename T, typename = typename std::enable_if<
                             std::is_integral<T>::value, T>::type>
-  leco_uint256 operator+(const T &rhs) const
+  inline leco_uint256 operator+(const T &rhs) const
   {
     return leco_uint256(UPPER + ((LOWER + (uint64_t)rhs) < LOWER),
                         LOWER + (uint64_t)rhs);
   }
 
-  leco_uint256 &operator+=(const leco_uint256 &rhs)
+  inline leco_uint256 &operator+=(const leco_uint256 &rhs)
   {
     UPPER += rhs.UPPER + ((LOWER + rhs.LOWER) < LOWER);
     LOWER += rhs.LOWER;
@@ -168,114 +168,139 @@ public:
 
   template <typename T, typename = typename std::enable_if<
                             std::is_integral<T>::value, T>::type>
-  leco_uint256 &operator+=(const T &rhs)
+  inline leco_uint256 &operator+=(const T &rhs)
   {
     return *this += leco_uint256(rhs);
   }
 
   template <typename T, typename = typename std::enable_if<
                             std::is_integral<T>::value, T>::type>
-  leco_uint256 operator-(const T &rhs) const
+  inline leco_uint256 operator-(const T &rhs) const
   {
     return leco_uint256(UPPER - ((LOWER - rhs) > LOWER), LOWER - rhs);
   }
 
   template <typename T, typename = typename std::enable_if<
                             std::is_integral<T>::value, T>::type>
-  leco_uint256 &operator-=(const T &rhs)
+  inline leco_uint256 &operator-=(const T &rhs)
   {
     return *this = *this - leco_uint256(rhs);
   }
 
-  leco_uint256 operator-(const __uint128_t &rhs) const
+  inline leco_uint256 operator-(const __uint128_t &rhs) const
   {
     return *this - leco_uint256(rhs);
   }
 
-  leco_uint256 operator-(const leco_uint256 &rhs) const
+  inline leco_uint256 operator-(const leco_uint256 &rhs) const
   {
     return leco_uint256(UPPER - rhs.UPPER - ((LOWER - rhs.LOWER) > LOWER),
                         LOWER - rhs.LOWER);
   }
 
-  leco_uint256 &operator-=(const __uint128_t &rhs)
+  inline leco_uint256 &operator-=(const __uint128_t &rhs)
   {
     return *this -= leco_uint256(rhs);
   }
 
-  leco_uint256 &operator-=(const leco_uint256 &rhs)
+  inline leco_uint256 &operator-=(const leco_uint256 &rhs)
   {
     *this = *this - rhs;
     return *this;
   }
 
-  leco_uint256 operator*(const leco_uint256 &rhs) const
+  // inline leco_uint256 operator*(const leco_uint256 &rhs) const
+  // {
+  //   // split values into 4 64-bit parts
+  //   __uint128_t top[4] = {UPPER >> 64, UPPER & 0xffffffffffffffffUL,
+  //                         LOWER >> 64, LOWER & 0xffffffffffffffffUL};
+  //   __uint128_t bottom[4] = {rhs.UPPER >> 64, rhs.UPPER & 0xffffffffffffffffUL,
+  //                            rhs.LOWER >> 64, rhs.LOWER & 0xffffffffffffffffUL};
+  //   __uint128_t products[4][4];
+
+  //   // multiply each component of the values
+  //   for (int y = 3; y > -1; y--)
+  //   {
+  //     for (int x = 3; x > -1; x--)
+  //     {
+  //       products[3 - y][x] = top[x] * bottom[y];
+  //     }
+  //   }
+
+  //   // first row
+  //   __uint128_t fourth64 = __uint128_t(products[0][3] & 0xffffffffffffffffUL);
+  //   __uint128_t third64 = __uint128_t(products[0][2] & 0xffffffffffffffffUL) +
+  //                         __uint128_t(products[0][3] >> 64);
+  //   __uint128_t second64 = __uint128_t(products[0][1] & 0xffffffffffffffffUL) +
+  //                          __uint128_t(products[0][2] >> 64);
+  //   __uint128_t first64 = __uint128_t(products[0][0] & 0xffffffffffffffffUL) +
+  //                         __uint128_t(products[0][1] >> 64);
+
+  //   // second row
+  //   third64 += __uint128_t(products[1][3] & 0xffffffffffffffffUL);
+  //   second64 += __uint128_t(products[1][2] & 0xffffffffffffffffUL) +
+  //               __uint128_t(products[1][3] >> 64);
+  //   first64 += __uint128_t(products[1][1] & 0xffffffffffffffffUL) +
+  //              __uint128_t(products[1][2] >> 64);
+
+  //   // third row
+  //   second64 += __uint128_t(products[2][3] & 0xffffffffffffffffUL);
+  //   first64 += __uint128_t(products[2][2] & 0xffffffffffffffffUL) +
+  //              __uint128_t(products[2][3] >> 64);
+
+  //   // fourth row
+  //   first64 += __uint128_t(products[3][3] & 0xffffffffffffffffUL);
+
+  //   // combines the values, taking care of carry over
+  //   return leco_uint256(first64 << leco_uint128_64, leco_uint128_0) +
+  //          leco_uint256(third64 >> 64, third64 << leco_uint128_64) +
+  //          leco_uint256(second64, leco_uint128_0) + leco_uint256(fourth64);
+  // }
+
+  // inline leco_uint256 &operator*=(const leco_uint256 &rhs)
+  // {
+  //   *this = *this * rhs;
+  //   return *this;
+  // }
+
+  // template <typename T, typename = typename std::enable_if<
+  //                           std::is_integral<T>::value, T>::type>
+  // inline leco_uint256 operator*(const T &rhs) const
+  // {
+  //   return *this * leco_uint256(rhs);
+  // }
+
+  // template <typename T, typename = typename std::enable_if<
+  //                           std::is_integral<T>::value, T>::type>
+  // leco_uint256 &operator*=(const T &rhs)
+  // {
+  //   return *this = *this * leco_uint256(rhs);
+  // }
+
+  inline leco_uint256 operator*(const uint32_t &rhs) const
   {
     // split values into 4 64-bit parts
-    __uint128_t top[4] = {UPPER >> 64, UPPER & 0xffffffffffffffffUL,
-                          LOWER >> 64, LOWER & 0xffffffffffffffffUL};
-    __uint128_t bottom[4] = {rhs.UPPER >> 64, rhs.UPPER & 0xffffffffffffffffUL,
-                             rhs.LOWER >> 64, rhs.LOWER & 0xffffffffffffffffUL};
-    __uint128_t products[4][4];
+    // __uint128_t top[4] = {UPPER >> 64, UPPER & 0xffffffffffffffffUL,
+    //                       LOWER >> 64, LOWER & 0xffffffffffffffffUL};
 
-    // multiply each component of the values
-    for (int y = 3; y > -1; y--)
-    {
-      for (int x = 3; x > -1; x--)
-      {
-        products[3 - y][x] = top[x] * bottom[y];
-      }
-    }
+    // __uint128_t products[4];
 
-    // first row
-    __uint128_t fourth64 = __uint128_t(products[0][3] & 0xffffffffffffffffUL);
-    __uint128_t third64 = __uint128_t(products[0][2] & 0xffffffffffffffffUL) +
-                          __uint128_t(products[0][3] >> 64);
-    __uint128_t second64 = __uint128_t(products[0][1] & 0xffffffffffffffffUL) +
-                           __uint128_t(products[0][2] >> 64);
-    __uint128_t first64 = __uint128_t(products[0][0] & 0xffffffffffffffffUL) +
-                          __uint128_t(products[0][1] >> 64);
-
-    // second row
-    third64 += __uint128_t(products[1][3] & 0xffffffffffffffffUL);
-    second64 += __uint128_t(products[1][2] & 0xffffffffffffffffUL) +
-                __uint128_t(products[1][3] >> 64);
-    first64 += __uint128_t(products[1][1] & 0xffffffffffffffffUL) +
-               __uint128_t(products[1][2] >> 64);
-
-    // third row
-    second64 += __uint128_t(products[2][3] & 0xffffffffffffffffUL);
-    first64 += __uint128_t(products[2][2] & 0xffffffffffffffffUL) +
-               __uint128_t(products[2][3] >> 64);
-
-    // fourth row
-    first64 += __uint128_t(products[3][3] & 0xffffffffffffffffUL);
+    // // multiply each component of the values
+    // for (int x = 3; x > -1; x--) {
+    //   products[x] = top[x] * rhs;
+    // }
 
     // combines the values, taking care of carry over
-    return leco_uint256(first64 << leco_uint128_64, leco_uint128_0) +
-           leco_uint256(third64 >> 64, third64 << leco_uint128_64) +
-           leco_uint256(second64, leco_uint128_0) + leco_uint256(fourth64);
+    return leco_uint256(((UPPER >> 64) * rhs) << leco_uint128_64,
+                        leco_uint128_0) +
+           leco_uint256(((LOWER >> 64) * rhs) >> 64, ((LOWER >> 64) * rhs)
+                                                         << leco_uint128_64) +
+           leco_uint256(((UPPER & 0xffffffffffffffffUL) * rhs),
+                        leco_uint128_0) +
+           leco_uint256(((LOWER & 0xffffffffffffffffUL) * rhs));
   }
 
-  leco_uint256 &operator*=(const leco_uint256 &rhs)
-  {
-    *this = *this * rhs;
-    return *this;
-  }
-
-  template <typename T, typename = typename std::enable_if<
-                            std::is_integral<T>::value, T>::type>
-  leco_uint256 operator*(const T &rhs) const
-  {
-    return *this * leco_uint256(rhs);
-  }
-
-  template <typename T, typename = typename std::enable_if<
-                            std::is_integral<T>::value, T>::type>
-  leco_uint256 &operator*=(const T &rhs)
-  {
-    return *this = *this * leco_uint256(rhs);
-  }
+  inline leco_uint256 &operator*=(const uint32_t &rhs) { return *this = *this * rhs; }
 
   // Bitwise Operators
   leco_uint256 operator&(const __uint128_t &rhs) const;
@@ -283,7 +308,7 @@ public:
 
   template <typename T, typename = typename std::enable_if<
                             std::is_integral<T>::value, T>::type>
-  leco_uint256 operator&(const T &rhs) const
+  inline leco_uint256 operator&(const T &rhs) const
   {
     return leco_uint256(leco_uint128_0, LOWER & (__uint128_t)rhs);
   }
@@ -293,7 +318,7 @@ public:
 
   template <typename T, typename = typename std::enable_if<
                             std::is_integral<T>::value, T>::type>
-  leco_uint256 &operator&=(const T &rhs)
+  inline leco_uint256 &operator&=(const T &rhs)
   {
     UPPER = leco_uint128_0;
     LOWER &= rhs;
@@ -305,7 +330,7 @@ public:
 
   template <typename T, typename = typename std::enable_if<
                             std::is_integral<T>::value, T>::type>
-  leco_uint256 operator|(const T &rhs) const
+  inline leco_uint256 operator|(const T &rhs) const
   {
     return leco_uint256(UPPER, LOWER | __uint128_t(rhs));
   }
@@ -315,7 +340,7 @@ public:
 
   template <typename T, typename = typename std::enable_if<
                             std::is_integral<T>::value, T>::type>
-  leco_uint256 &operator|=(const T &rhs)
+  inline leco_uint256 &operator|=(const T &rhs)
   {
     LOWER |= (__uint128_t)rhs;
     return *this;
@@ -326,7 +351,7 @@ public:
 
   template <typename T, typename = typename std::enable_if<
                             std::is_integral<T>::value, T>::type>
-  leco_uint256 operator^(const T &rhs) const
+  inline leco_uint256 operator^(const T &rhs) const
   {
     return leco_uint256(UPPER, LOWER ^ (__uint128_t)rhs);
   }
@@ -336,7 +361,7 @@ public:
 
   template <typename T, typename = typename std::enable_if<
                             std::is_integral<T>::value, T>::type>
-  leco_uint256 &operator^=(const T &rhs)
+  inline leco_uint256 &operator^=(const T &rhs)
   {
     LOWER ^= (__uint128_t)rhs;
     return *this;
@@ -350,7 +375,7 @@ public:
 
   template <typename T, typename = typename std::enable_if<
                             std::is_integral<T>::value, T>::type>
-  leco_uint256 operator<<(const T &rhs) const
+  inline leco_uint256 operator<<(const T &rhs) const
   {
     return *this << leco_uint256(rhs);
   }
@@ -360,7 +385,7 @@ public:
 
   template <typename T, typename = typename std::enable_if<
                             std::is_integral<T>::value, T>::type>
-  leco_uint256 &operator<<=(const T &rhs)
+  inline leco_uint256 &operator<<=(const T &rhs)
   {
     *this = *this << leco_uint256(rhs);
     return *this;
@@ -371,17 +396,17 @@ public:
 
   template <typename T, typename = typename std::enable_if<
                             std::is_integral<T>::value, T>::type>
-  leco_uint256 operator>>(const T &rhs) const
+  inline leco_uint256 operator>>(const T &rhs) const
   {
     return *this >> leco_uint256(rhs);
   }
 
-  leco_uint256 &operator>>=(const __uint128_t &shift);
-  leco_uint256 &operator>>=(const leco_uint256 &shift);
+  inline leco_uint256 &operator>>=(const __uint128_t &shift);
+  inline leco_uint256 &operator>>=(const leco_uint256 &shift);
 
   template <typename T, typename = typename std::enable_if<
                             std::is_integral<T>::value, T>::type>
-  leco_uint256 &operator>>=(const T &rhs)
+  inline leco_uint256 &operator>>=(const T &rhs)
   {
     *this = *this >> leco_uint256(rhs);
     return *this;
@@ -401,7 +426,5 @@ public:
   // private:
   __uint128_t LOWER, UPPER;
 };
-
-
 
 #endif // LECO_UINT256_H

@@ -20,27 +20,27 @@ const leco_uint256 leco_uint256_1 = 1;
 // } // namespace std
 
 // comparison operators
-bool leco_uint256::operator==(const __uint128_t &rhs) const
+inline bool leco_uint256::operator==(const __uint128_t &rhs) const
 {
   return (*this == leco_uint256(rhs));
 }
 
-bool leco_uint256::operator==(const leco_uint256 &rhs) const
+inline bool leco_uint256::operator==(const leco_uint256 &rhs) const
 {
   return ((UPPER == rhs.UPPER) && (LOWER == rhs.LOWER));
 }
 
-bool leco_uint256::operator!=(const __uint128_t &rhs) const
+inline bool leco_uint256::operator!=(const __uint128_t &rhs) const
 {
   return (*this != leco_uint256(rhs));
 }
 
-bool leco_uint256::operator!=(const leco_uint256 &rhs) const
+inline bool leco_uint256::operator!=(const leco_uint256 &rhs) const
 {
   return ((UPPER != rhs.UPPER) | (LOWER != rhs.LOWER));
 }
 
-bool leco_uint256::operator>(const __uint128_t &rhs) const
+inline bool leco_uint256::operator>(const __uint128_t &rhs) const
 {
   return (*this > leco_uint256(rhs));
 }
@@ -58,12 +58,12 @@ bool leco_uint256::operator>(const leco_uint256 &rhs) const
   return false;
 }
 
-bool leco_uint256::operator<(const __uint128_t &rhs) const
+inline bool leco_uint256::operator<(const __uint128_t &rhs) const
 {
   return (*this < leco_uint256(rhs));
 }
 
-bool leco_uint256::operator<(const leco_uint256 &rhs) const
+inline bool leco_uint256::operator<(const leco_uint256 &rhs) const
 {
   if (UPPER == rhs.UPPER)
   {
@@ -76,7 +76,7 @@ bool leco_uint256::operator<(const leco_uint256 &rhs) const
   return false;
 }
 
-bool leco_uint256::operator>=(const __uint128_t &rhs) const
+inline bool leco_uint256::operator>=(const __uint128_t &rhs) const
 {
   return (*this >= leco_uint256(rhs));
 }
@@ -86,7 +86,7 @@ bool leco_uint256::operator>=(const leco_uint256 &rhs) const
   return ((*this > rhs) | (*this == rhs));
 }
 
-bool leco_uint256::operator<=(const __uint128_t &rhs) const
+inline bool leco_uint256::operator<=(const __uint128_t &rhs) const
 {
   return (*this <= leco_uint256(rhs));
 }
@@ -96,7 +96,7 @@ bool leco_uint256::operator<=(const leco_uint256 &rhs) const
   return ((*this < rhs) | (*this == rhs));
 }
 
-leco_uint256 leco_uint256::operator&(const __uint128_t &rhs) const
+inline leco_uint256 leco_uint256::operator&(const __uint128_t &rhs) const
 {
   return leco_uint256(leco_uint128_0, LOWER & rhs);
 }
@@ -106,72 +106,72 @@ leco_uint256 leco_uint256::operator&(const leco_uint256 &rhs) const
   return leco_uint256(UPPER & rhs.UPPER, LOWER & rhs.LOWER);
 }
 
-leco_uint256 &leco_uint256::operator&=(const __uint128_t &rhs)
+inline leco_uint256 &leco_uint256::operator&=(const __uint128_t &rhs)
 {
   UPPER = leco_uint128_0;
   LOWER &= rhs;
   return *this;
 }
 
-leco_uint256 &leco_uint256::operator&=(const leco_uint256 &rhs)
+inline leco_uint256 &leco_uint256::operator&=(const leco_uint256 &rhs)
 {
   UPPER &= rhs.UPPER;
   LOWER &= rhs.LOWER;
   return *this;
 }
 
-leco_uint256 leco_uint256::operator|(const __uint128_t &rhs) const
+inline leco_uint256 leco_uint256::operator|(const __uint128_t &rhs) const
 {
   return leco_uint256(UPPER, LOWER | rhs);
 }
 
-leco_uint256 leco_uint256::operator|(const leco_uint256 &rhs) const
+inline leco_uint256 leco_uint256::operator|(const leco_uint256 &rhs) const
 {
   return leco_uint256(UPPER | rhs.UPPER, LOWER | rhs.LOWER);
 }
 
-leco_uint256 &leco_uint256::operator|=(const __uint128_t &rhs)
+inline leco_uint256 &leco_uint256::operator|=(const __uint128_t &rhs)
 {
   LOWER |= rhs;
   return *this;
 }
 
-leco_uint256 &leco_uint256::operator|=(const leco_uint256 &rhs)
+inline leco_uint256 &leco_uint256::operator|=(const leco_uint256 &rhs)
 {
   UPPER |= rhs.UPPER;
   LOWER |= rhs.LOWER;
   return *this;
 }
 
-leco_uint256 leco_uint256::operator^(const __uint128_t &rhs) const
+inline leco_uint256 leco_uint256::operator^(const __uint128_t &rhs) const
 {
   return leco_uint256(UPPER, LOWER ^ rhs);
 }
 
-leco_uint256 leco_uint256::operator^(const leco_uint256 &rhs) const
+inline leco_uint256 leco_uint256::operator^(const leco_uint256 &rhs) const
 {
   return leco_uint256(UPPER ^ rhs.UPPER, LOWER ^ rhs.LOWER);
 }
 
-leco_uint256 &leco_uint256::operator^=(const __uint128_t &rhs)
+inline leco_uint256 &leco_uint256::operator^=(const __uint128_t &rhs)
 {
   LOWER ^= rhs;
   return *this;
 }
 
-leco_uint256 &leco_uint256::operator^=(const leco_uint256 &rhs)
+inline leco_uint256 &leco_uint256::operator^=(const leco_uint256 &rhs)
 {
   UPPER ^= rhs.UPPER;
   LOWER ^= rhs.LOWER;
   return *this;
 }
 
-leco_uint256 leco_uint256::operator~() const
+inline leco_uint256 leco_uint256::operator~() const
 {
   return leco_uint256(~UPPER, ~LOWER);
 }
 
-leco_uint256 leco_uint256::operator<<(const __uint128_t &rhs) const
+inline leco_uint256 leco_uint256::operator<<(const __uint128_t &rhs) const
 {
   return *this << leco_uint256(rhs);
 }
@@ -207,18 +207,18 @@ leco_uint256 leco_uint256::operator<<(const leco_uint256 &rhs) const
   }
 }
 
-leco_uint256 &leco_uint256::operator<<=(const __uint128_t &shift)
+inline leco_uint256 &leco_uint256::operator<<=(const __uint128_t &shift)
 {
   return *this <<= leco_uint256(shift);
 }
 
-leco_uint256 &leco_uint256::operator<<=(const leco_uint256 &shift)
+inline leco_uint256 &leco_uint256::operator<<=(const leco_uint256 &shift)
 {
   *this = *this << shift;
   return *this;
 }
 
-leco_uint256 leco_uint256::operator>>(const __uint128_t &rhs) const
+inline leco_uint256 leco_uint256::operator>>(const __uint128_t &rhs) const
 {
   return *this >> leco_uint256(rhs);
 }
@@ -253,12 +253,12 @@ leco_uint256 leco_uint256::operator>>(const leco_uint256 &rhs) const
   }
 }
 
-leco_uint256 &leco_uint256::operator>>=(const __uint128_t &shift)
+inline leco_uint256 &leco_uint256::operator>>=(const __uint128_t &shift)
 {
   return *this >>= leco_uint256(shift);
 }
 
-leco_uint256 &leco_uint256::operator>>=(const leco_uint256 &shift)
+inline leco_uint256 &leco_uint256::operator>>=(const leco_uint256 &shift)
 {
   *this = *this >> shift;
   return *this;

@@ -88,6 +88,7 @@ uint32_t BlockBuilder_leco::EncodeValue(std::string& buffer,
     uint8_t* res = descriptor;
     res = codec.encodeArray8(data.data() + (i * block_size_), block_length,
                              descriptor, i);
+    //std::cout<<"encode data[1] "<<data[1]<<std::endl;
 
     int descriptor_length = res - descriptor;
     descriptor = (uint8_t*)realloc(descriptor, descriptor_length);
@@ -116,7 +117,8 @@ uint32_t BlockBuilder_leco::EncodeValue(std::string& buffer,
 // into the buffer
 // TOTAL COMPONENT:
 // 0. max_padding_length (if padding_enable) [uint8_t]
-// 1. first key (if with_first_key) [max_padding_length * block_num]
+// 1. first key (if with_first_key) [(max_padding_length+1) * block_num] 
+// P.S.: we need to store the first key length in the first byte
 // 2.(deprecated) each block string length after padding (if with_first_key & padding_enable) [uint8_t * block_num]
 // 3.(deprecated) origin string length (if with_first_key & padding_enable) [uint8_t * N]
 // 4. start_byte [int * block_num]
@@ -132,9 +134,11 @@ uint32_t BlockBuilder_leco::EncodeVal(std::string& buffer,
   }
   Leco_string<T> codec;
   char padding_char = 2;
+  std::vector<S> data_vec_tmp(data_vec);
+
   codec.setBlockSize(block_size_, block_num);
   if (padding_enable) {
-    codec.Padding_string(data_vec, N, padding_char);
+    codec.Padding_string(data_vec_tmp, N, padding_char);
     codec.get_uncompressed_size(totalsize_with_padding,
                                 totalsize_without_padding);
     max_padding_length = codec.get_max_padding_length();
@@ -158,6 +162,10 @@ uint32_t BlockBuilder_leco::EncodeVal(std::string& buffer,
         codec.Padd_one_string(tmp_str, padding_char);
       }
       codec.push_back_firstkey(tmp_str);
+      uint8_t first_key_length = data_vec[start].size();
+
+      buffer.append(reinterpret_cast<const char*>(&first_key_length),
+                    sizeof(first_key_length));
       buffer.append(tmp_str);  // fix length string array
       //std::cout<<buffer.size()<<std::endl;
       start += interval;
@@ -185,7 +193,7 @@ uint32_t BlockBuilder_leco::EncodeVal(std::string& buffer,
         (uint8_t*)malloc(block_length * sizeof(uint64_t) * 1000);
     uint8_t* res = descriptor;
 
-    res = codec.encodeArray8_string(key_vec, i * block_size_, block_length,
+    res = codec.encodeArray8_string(data_vec_tmp, i * block_size_, block_length,
                                     descriptor, i);
     int descriptor_length = res - descriptor;
     descriptor = (uint8_t*)realloc(descriptor, descriptor_length);
@@ -216,6 +224,7 @@ Slice BlockBuilder_leco::Finish() {
   std::string key_buf;
   std::string offset_buf;
   std::string size_buf;
+  N = key_vec.size();
   // TODO(yhliu918): we need to decide the key type based on its scale
 
   key_size = EncodeVal<leco_t, std::string>(key_buf, key_vec, true);
@@ -250,6 +259,7 @@ void BlockBuilder_leco::Add(const Slice& key, Slice& value) {
 inline void BlockBuilder_leco::AddWithLastKeyImpl(const Slice& key,
                                                   Slice& value) {
   std::string s = key.ToString();
+  //std::cout<<s<<std::endl;
   key_vec.emplace_back(s);
   uint64_t value_0, value_1;
   GetVarint64(&value, &value_0);

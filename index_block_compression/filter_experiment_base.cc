@@ -17,9 +17,8 @@
 #include <string>
 #include <thread>
 #include <vector>
-
-#include "rocksdb/db.h"
 #include "util/random.h"
+#include "rocksdb/db.h"
 #include "rocksdb/filter_policy.h"
 #include "rocksdb/options.h"
 #include "rocksdb/slice.h"
@@ -83,8 +82,8 @@ void init(const std::string& key_path, const std::string& db_path,
   // table_options->cache_index_and_filter_blocks = true;
 
   // begin index block tuning
-  // table_options->index_block_restart_interval = 1;
-  // table_options->enable_index_compression = false;
+  table_options->index_block_restart_interval = 1;
+  table_options->enable_index_compression = false;
   // table_options->format_version = 5;
   // table_options->block_size = 16 * 1024;
   // disable shortest separator
@@ -95,18 +94,18 @@ void init(const std::string& key_path, const std::string& db_path,
   // kShortenSeparators
 
 
-  table_options->index_type =
-      rocksdb::BlockBasedTableOptions::IndexType::kBinarySearchLeco;
-
-  table_options->padding_enable = true;
-  table_options->leco_block_size = 64;
-  table_options->total_length = key_count;
-  table_options->key_num_per_block = 16;
-
-
-
   // table_options->index_type =
-  //     rocksdb::BlockBasedTableOptions::IndexType::kBinarySearch;
+  //     rocksdb::BlockBasedTableOptions::IndexType::kBinarySearchLeco;
+
+  // table_options->padding_enable = true;
+  // table_options->leco_block_size = 64;
+  // table_options->total_length = key_count;
+  // table_options->key_num_per_block = 1;
+
+
+
+  table_options->index_type =
+      rocksdb::BlockBasedTableOptions::IndexType::kBinarySearch;
 
 
   options->table_factory.reset(
@@ -175,26 +174,23 @@ void init(const std::string& key_path, const std::string& db_path,
         std::cout << i << "/" << key_count << " ["
                   << ((i + 0.0) / (key_count + 0.0) * 100.) << "]\n";
     }
-  
 
     rocksdb::Random rnd(301);
     double start = clock();
     for (uint64_t i = 0; i < key_count/10; i++) {
-      //int index = random() % key_count;
       int index = rnd.Uniform(key_count);
       key = keys[index];
       rocksdb::Slice s_key(key);
       std::string value;
       status = (*db)->Get(rocksdb::ReadOptions(), s_key, &value);
-
       if(i % (key_count / 100) == 0)
         std::cout << i << "/" << key_count << " ["
                   << ((i + 0.0) / (key_count + 0.0) * 100.) << "]\n";
       
     }
+
     double end = clock();
-    std::cout << "time: " << (end - start) / CLOCKS_PER_SEC << "\n";
-          
+    std::cout << "time: " << (end - start) / CLOCKS_PER_SEC << "\n";    
 
 
 

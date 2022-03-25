@@ -1589,8 +1589,11 @@ struct ReadOptions {
   // Default: std::numeric_limits<uint64_t>::max()
   uint64_t value_size_soft_limit;
 
+  
+
   ReadOptions();
   ReadOptions(bool cksum, bool cache);
+
 };
 
 // Options that control write operations

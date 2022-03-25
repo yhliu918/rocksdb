@@ -60,6 +60,14 @@ IndexBuilder* IndexBuilder::CreateIndexBuilder(
           table_opt.index_shortening, /* include_first_key */ true);
       break;
     }
+    case BlockBasedTableOptions::kBinarySearchLeco:{
+      result = new LecoIndexBuilder(
+          comparator, 
+          table_opt.index_shortening, /* include_first_key */ false,
+          table_opt.padding_enable, table_opt.leco_block_size,
+          table_opt.total_length, table_opt.key_num_per_block);
+      break;
+    }
     default: {
       assert(!"Do not recognize the index type ");
       break;

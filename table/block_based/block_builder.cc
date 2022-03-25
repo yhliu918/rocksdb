@@ -35,6 +35,7 @@
 
 #include <assert.h>
 #include <algorithm>
+#include <iostream>
 #include "db/dbformat.h"
 #include "rocksdb/comparator.h"
 #include "table/block_based/data_block_footer.h"
@@ -186,6 +187,7 @@ inline void BlockBuilder::AddWithLastKeyImpl(const Slice& key,
   assert(counter_ <= block_restart_interval_);
   assert(!use_value_delta_encoding_ || delta_value);
   size_t shared = 0;  // number of bytes shared with prev key
+  //std::cout<<"add key: "<<key.ToString()<<std::endl;
   if (counter_ >= block_restart_interval_) {
     // Restart compression
     restarts_.push_back(static_cast<uint32_t>(buffer_size));

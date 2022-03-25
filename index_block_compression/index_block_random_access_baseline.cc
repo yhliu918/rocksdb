@@ -17,13 +17,11 @@
 #include "rocksdb/slice_transform.h"
 #include "rocksdb/table.h"
 #include "table/block_based/block.h"
-#include "table/block_based/block_builder_leco.h"
+#include "table/block_based/block_builder.h"
 #include "table/format.h"
 #include "test_util/testharness.h"
 #include "test_util/testutil.h"
 #include "util/random.h"
-#include <gperftools/profiler.h>
-
 
 namespace ROCKSDB_NAMESPACE {
 
@@ -60,13 +58,17 @@ void GenerateSeparators(std::vector<std::string> *separators,
             << std::endl;
 }
 
-void randomaccess(std::string key_file,std::string seek_key_path, std::string offset_file,
-                  std::string size_file, int block_size, int key_num_per_block, bool padding = false, bool includeFirstKey = false) {
+void randomaccess(std::string key_file, std::string seek_key_path, std::string offset_file,
+                  std::string size_file, int restart_interval,
+                  bool useValueDeltaEncoding = true,
+                  bool includeFirstKey = false) {
   Options options = Options();
 
+  std::vector<std::string> separators;
   std::vector<std::string> keys;
   std::vector<BlockHandle> block_handles;
-// index block key loading
+  std::vector<std::string> seek_keys;
+
   std::ifstream keyFile(key_file, std::ios::in);
   if (!keyFile) {
     std::cout << "error opening source file." << std::endl;
@@ -81,23 +83,6 @@ void randomaccess(std::string key_file,std::string seek_key_path, std::string of
     keys.emplace_back(next);
   }
   keyFile.close();
-
-// test key loading
-std::vector<std::string> seek_keys;
-  std::ifstream keySFile(seek_key_path, std::ios::in);
-  if (!keySFile) {
-    std::cout << "error opening source file." << std::endl;
-    return;
-  }
-  while (1) {
-    std::string next;
-    keySFile >> next;
-    if (keySFile.eof()) {
-      break;
-    }
-    seek_keys.emplace_back(next);
-  }
-  keySFile.close();
 
   std::ifstream offsetFile(offset_file, std::ios::in);
   std::ifstream sizeFile(size_file, std::ios::in);
@@ -119,72 +104,86 @@ std::vector<std::string> seek_keys;
   offsetFile.close();
   sizeFile.close();
 
-
-
-  
-  int N = keys.size();
-  int block_num = N/block_size;
-  if (N%block_size != 0) {
-    block_num++;
+  std::ifstream seekKeyFile(seek_key_path, std::ios::in);
+  if (!seekKeyFile) {
+    std::cout << "error opening source file." << std::endl;
+    return;
   }
+  while (1) {
+    std::string next;
+    seekKeyFile >> next;
+    if (seekKeyFile.eof()) {
+      break;
+    }
+    seek_keys.emplace_back(next);
+  }
+  seekKeyFile.close();
 
-  BlockBuilder_leco builder(padding, block_size, N, key_num_per_block);
-  
-  uint64_t keys_without_padding = 0;
-  uint64_t keys_with_padding = 0;
 
+  const bool kUseDeltaEncoding = true;
+  BlockBuilder builder(restart_interval, kUseDeltaEncoding,
+                       useValueDeltaEncoding);
+  int num_records = block_handles.size();
+  int key_length = keys[0].size();
 
-  for (int i = 0; i < N; i++) {
+  BlockHandle last_encoded_handle;
+  int total_size = 0;
+  for (int i = 0; i < num_records; i++) {
     IndexValue entry(block_handles[i], keys[i]);
-    std::string encoded_entry("");
+    std::string encoded_entry;
+    std::string delta_encoded_entry;
     entry.EncodeTo(&encoded_entry, includeFirstKey, nullptr);
-    Slice encoded_entry_slice(encoded_entry);
-    builder.Add(keys[i], encoded_entry_slice);
+    if (useValueDeltaEncoding && i > 0) {
+      entry.EncodeTo(&delta_encoded_entry, includeFirstKey,
+                     &last_encoded_handle);
+    }
+    last_encoded_handle = entry.handle;
+    const Slice delta_encoded_entry_slice(delta_encoded_entry);
+    // builder.Add(separators[i], encoded_entry, &delta_encoded_entry_slice);
+    total_size += keys[i].size();
+    builder.Add(keys[i], encoded_entry, &delta_encoded_entry_slice);
   }
+  //   if (includeFirstKey)
+  //     // varint32 used to save first_key_size, so it actually takes only 1
+  //     byte
+  //     // instead of 4.
+  //     std::cout << "uncompressed size: "
+  //               << (key_length + 16 + key_length + 4) * num_records <<
+  //               std::endl;
+
+  //   else
+  //     std::cout << "uncompressed size: " << (key_length + 3) * num_records
+  //               << std::endl;
 
   // read serialized contents of the block
   Slice rawblock = builder.Finish();
-  builder.get_uncompressed_size(keys_with_padding, keys_without_padding);
 
-  // if need padding, we output both pad & unpad cr, otherwise only unpad cr
-  std::cout << "compressed size: " << rawblock.size() << std::endl;
-  if (padding) {
-    int pad_uncompressed_size =
-        keys_without_padding + sizeof(uint64_t) * 2 * N;
-    std::cout << "padding uncompressed size " << pad_uncompressed_size
-              << " padding compression rate "
-              << (double)rawblock.size() * 100 / pad_uncompressed_size
-              << std::endl;
-  }
-  int unpad_uncompressed_size =
-      keys_with_padding + sizeof(uint64_t) * 2 * N;
-  std::cout << "unpadding uncompressed size " << unpad_uncompressed_size
-            << " unpadding compression rate "
-            << (double)rawblock.size() * 100 / unpad_uncompressed_size
+  std::cout << "compressed size: " << rawblock.size() << " uncompressed size "
+            << num_records * 16 + total_size << " compression rate "
+            << (double)rawblock.size() * 100 / (num_records * 16 + total_size)
             << std::endl;
 
   // create block reader
-  int seek_num = seek_keys.size();
-  for(int i=0;i<seek_num;i++){
-    // append a 8B internal key, because when using Seek()
-    // we need to cut off 8B internal key
-    seek_keys[i].append("00000000"); 
-  }
   BlockContents contents;
   contents.data = rawblock;
-  Block reader(std::move(contents),0,nullptr, true);
+  Block reader(std::move(contents));
 
   const bool kTotalOrderSeek = true;
   const bool kIncludesSeq = false;
-  const bool kValueIsFull = true;
+  const bool kValueIsFull = !useValueDeltaEncoding;
   IndexBlockIter *kNullIter = nullptr;
   Statistics *kNullStats = nullptr;
+  // read contents of block sequentially
 
   // read block contents randomly
-  bool using_leco_encode = true;
-  InternalIteratorBase<IndexValue> * iter = reader.NewIndexIterator(
+  InternalIteratorBase<IndexValue> *iter = reader.NewIndexIterator(
       options.comparator, kDisableGlobalSequenceNumber, kNullIter, kNullStats,
-      kTotalOrderSeek, includeFirstKey, kIncludesSeq, kValueIsFull, false, nullptr, using_leco_encode, block_size, padding, key_num_per_block);
+      kTotalOrderSeek, includeFirstKey, kIncludesSeq, kValueIsFull, false, nullptr, false, 0, false, 1);
+  for (size_t i = 0; i < seek_keys.size(); ++i) {
+    seek_keys[i].append("00000000");
+  }
+
+  int seek_num = seek_keys.size();
   Random rnd(301);
   double start = clock();
 
@@ -197,32 +196,14 @@ std::vector<std::string> seek_keys;
     // int index = i;
 
     Slice k(seek_keys[index]);
-    // std::cout<< "index "<< index<<" key "<< k.ToString()<<std::endl;
-    // std::cout<<"offset "<<block_handles[index].offset()<<" size "<<block_handles[index].size()<<std::endl;
-
-    //  search in block for this key
-
     iter->Seek(k);
     IndexValue v = iter->value();
 
-    // int block_ind = block_index_map[index] - 1;
 
     //v.handle.offset();
-    // std::cout<< "index "<< index<<" key "<< seek_keys[index]<<std::endl;
-    // std::cout<<"offset "<<v.handle.offset()<<" truth: "<<block_handles[index].offset()<<std::endl;
-    // std::cout<<"size "<<v.handle.size()<<" truth: "<<block_handles[index].size()<<std::endl;
-    
     assert(v.handle.offset() == block_handles[index].offset());
     assert(v.handle.size() == block_handles[index].size());
-    // assert(iter->key().ToString() == keys[index]);
 
-    // assert(v.handle.offset() == block_handles[block_ind].offset());
-    // assert(v.handle.size() == block_handles[block_ind].size() );
-    // EXPECT_EQ(separators[index], iter->key().ToString());
-    // EXPECT_EQ(block_handles[index].offset(), v.handle.offset());
-    // EXPECT_EQ(block_handles[index].size(), v.handle.size());
-    // EXPECT_EQ(includeFirstKey ? keys[index] : "",
-    //           v.first_internal_key.ToString());
 
   }
   delete iter;
@@ -235,19 +216,14 @@ std::vector<std::string> seek_keys;
 
 }  // namespace ROCKSDB_NAMESPACE
 
-
 int main(int argc, const char *argv[]) {
-  
   std::string key_path = std::string(argv[1]);
   std::string offset_path = std::string(argv[2]);
   std::string size_path = std::string(argv[3]);
-  int block_size = atoi(argv[4]);
-  int key_num_per_block = atoi(argv[5]);
-  std::string seek_key_path = std::string(argv[6]);
-  rocksdb::randomaccess(key_path,seek_key_path, offset_path, size_path, block_size, key_num_per_block, true,
+  int interval = atoi(argv[4]);
+  std::string seek_key_path = std::string(argv[5]);
+  rocksdb::randomaccess(key_path,seek_key_path, offset_path, size_path, interval, true,
                         false);
-
-  
   // rocksdb::randomaccess( "/home/lyh/rocksdb/dump_data/key_2000000.txt",
   // "/home/lyh/rocksdb/dump_data/offset_2000000.txt",
   // "/home/lyh/rocksdb/dump_data/size_2000000.txt",32,true, true);

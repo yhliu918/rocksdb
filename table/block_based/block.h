@@ -280,6 +280,7 @@ class BlockIter : public InternalIteratorBase<TValue> {
     using_leco_encode_ = using_leco_encode;
     padding_enable_ = padding_enable;
     key_num_per_block_ = key_num_per_block;
+    valid_ = true; // only used by LecoIndexBlock
   }
 
   // Makes Valid() return false, status() return `s`, and Seek()/Prev()/etc do
@@ -297,7 +298,10 @@ class BlockIter : public InternalIteratorBase<TValue> {
     Cleanable::Reset();
   }
 
-  bool Valid() const override { return current_ < restarts_; }
+  bool Valid() const override {
+    if(using_leco_encode_){return valid_;} 
+    return current_ < restarts_; 
+  }
 
   virtual void SeekToFirst() override final {
     SeekToFirstImpl();
@@ -384,6 +388,8 @@ class BlockIter : public InternalIteratorBase<TValue> {
   // Buffer for key data when global seqno assignment is enabled.
   IterKey key_buf_;
   Slice value_;
+  uint64_t offset_;
+  uint64_t size_;
   Status status_;
   // Key to be exposed to users.
   Slice key_;
@@ -397,6 +403,7 @@ class BlockIter : public InternalIteratorBase<TValue> {
   bool using_leco_encode_;
   bool padding_enable_;
   int key_num_per_block_;
+  bool valid_;
 
   virtual void SeekToFirstImpl() = 0;
   virtual void SeekToLastImpl() = 0;
@@ -417,10 +424,10 @@ class BlockIter : public InternalIteratorBase<TValue> {
   // `key_buf_`, and `key_pinned_` with info about the found key.
   void UpdateKey() {
     key_buf_.Clear();
-    if(using_leco_encode_) {
+    if (!Valid()) {
       return;
     }
-    if (!Valid()) {
+    if(using_leco_encode_) {
       return;
     }
     if (raw_key_.IsUserKey()) {
@@ -477,6 +484,7 @@ class BlockIter : public InternalIteratorBase<TValue> {
   void SeekToRestartPoint(uint32_t index) {
     raw_key_.Clear();
     restart_index_ = index;
+    
     // current_ will be fixed by ParseNextKey();
 
     // ParseNextKey() starts at the end of value_, so set value_ accordingly
@@ -655,14 +663,15 @@ class IndexBlockIter final : public BlockIter<IndexValue> {
   }
 
   IndexValue value() const override {
-    
+
     if(using_leco_encode_) {
-      uint64_t offset,size;
-      Slice v = value_;
-      GetFixed64(&v,&offset);
-      GetFixed64(&v,&size);
-      BlockHandle handle(offset,size);
-      IndexValue ret(handle,v);
+      // uint64_t offset,size;
+      // Slice v = value_;
+      // offset = reinterpret_cast<const uint64_t*>(v.data())[0];
+      // size = reinterpret_cast<const uint64_t*>(v.data())[1];
+      //std::cout<< "offset: " << offset_ << " size: " << size_ << std::endl;
+      BlockHandle handle(offset_,size_);
+      IndexValue ret(handle,"");
       return ret;
       
     }
