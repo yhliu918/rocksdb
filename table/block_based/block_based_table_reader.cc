@@ -1552,6 +1552,7 @@ Status BlockBasedTable::MaybeReadBlockAndLoadToCache(
             GetMemoryAllocatorForCompressedBlock(rep_->table_options));
         s = block_fetcher.ReadBlockContents();
         raw_block_comp_type = block_fetcher.get_compression_type();
+        //std::cout<<rep_->file.get()->file_name()<<std::endl;
         contents = &raw_block_contents;
         if (get_context) {
           switch (block_type) {

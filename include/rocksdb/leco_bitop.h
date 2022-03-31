@@ -36,29 +36,44 @@ inline T convertToASCII(std::string& letter)
 
   for (auto x:letter)
   {
-    result += T(x) << shift;
+    result += T(x) << (uint8_t)shift;
     shift -= 8;
   }
   return result;
 }
 
 template <typename T>
-inline T convertToASCII_char(const char* letter, int size)
+inline void convertToASCII_char(const char* letter, int size, T* result)
 {
-  std::string s2 = "";
-  T result = 0;
-  int shift = (size - 1) * 8;
+ 
 
-  for (int i = 0; i < size; i++)
-  {
-    result += T(letter[i]) << shift;
-    shift -= 8;
+  uint8_t num_uint64 = size / 8;
+  uint8_t num_uint8 = size % 8;
+  for (uint8_t i = 0; i < num_uint64; ++i) {
+    uint64_t tmp = reinterpret_cast<const uint64_t*>(letter+ size - (i + 1) * 8)[0];
+    //memcpy(&tmp, letter + size - (i + 1) * 8, 8);
+    tmp = htobe64(tmp);
+    memcpy(reinterpret_cast<char*>(result) + i * 8, &tmp, 8);
   }
+  
+  if (num_uint8) {
+    uint64_t tmp = 0;
+    memcpy(&tmp, letter, num_uint8);
+    tmp = htobe64(tmp) >> (8 * (8 - num_uint8));
+    memcpy(reinterpret_cast<char*>(result) + num_uint64 * 8, &tmp, num_uint8);
+  }
+  // for (uint8_t i = 0; i < num_uint8; ++i) {
+  //   (reinterpret_cast<char*>(result) + num_uint64 * 8)[i] =
+  //       letter[size - num_uint64 * 8 - i - 1];
+  // }
+  // int shift = (size - 1) * 8;
+
+  // for (int i=0;i<size;i++)
   // {
-  //   result += T(x) << shift;
+  //   *result += T(letter[i]) << (uint8_t)shift;
   //   shift -= 8;
   // }
-  return result;
+
 }
 
 template <typename T>
@@ -78,42 +93,43 @@ inline uint32_t bits_T(T v)
 {
   uint32_t r(0);
   int length = sizeof(T) * 8;
-  if (length > 255 && v >= ((T)1 << 255))
+  if (length > 255 && v >= ((T)1 << (uint8_t)255))
   {
-    v >>= 256;
+    v >>= 255;
+    //v = v/2;
     r += 256;
   }
-  if (length > 127 && v >= ((T)1 << 127))
+  if (length > 127 && v >= ((T)1 << (uint8_t)127))
   {
     v >>= 128;
     r += 128;
   }
-  if (length > 63 && v >= ((T)1 << 63))
+  if (length > 63 && v >= ((T)1 << (uint8_t)63))
   {
     v >>= 64;
     r += 64;
   }
-  if (length > 31 && v >= ((T)1 << 31))
+  if (length > 31 && v >= ((T)1 << (uint8_t)31))
   {
     v >>= 32;
     r += 32;
   }
-  if (length > 15 && v >= ((T)1 << 15))
+  if (length > 15 && v >= ((T)1 << (uint8_t)15))
   {
     v >>= 16;
     r += 16;
   }
-  if (length > 7 && v >= ((T)1 << 7))
+  if (length > 7 && v >= ((T)1 << (uint8_t)7))
   {
     v >>= 8;
     r += 8;
   }
-  if (length > 3 && v >= ((T)1 << 3))
+  if (length > 3 && v >= ((T)1 << (uint8_t)3))
   {
     v >>= 4;
     r += 4;
   }
-  if (length > 1 && v >= ((T)1 << 1))
+  if (length > 1 && v >= ((T)1 << (uint8_t)1))
   {
     v >>= 2;
     r += 2;
@@ -190,27 +206,30 @@ void read_bit_fix_string(const uint8_t *in, uint32_t l, uint32_t to_find, T thet
 {
   uint64_t find_bit = to_find * (l+8);
   uint64_t start_byte = find_bit / 8;
-  uint64_t start_bit = find_bit % 8;
+  uint8_t start_bit = find_bit % 8;
   uint64_t occupy = start_bit;
-  T decode = 0;
   uint64_t total = 0;
 
-  decode += (((T)(in[start_byte] >> occupy)) << total);
-  total += (8 - occupy);
-  start_byte++;
+  // decode += (((T)(in[start_byte] >> occupy)) << total);
+  // total += (8 - occupy);
+  // start_byte++;
 
-  while (total < l+8)
-  {
-    decode += ((T)(in[start_byte]) << total);
-    total += 8 ;
-    start_byte++;
-  }
+  // while (total < l+8)
+  // {
+  //   decode += ((T)(in[start_byte]) << total);
+  //   total += 8 ;
+  //   start_byte++;
+  // }
 
-  decode = decode & (((T)1 << (l+8)) - 1);
-  *ori_length = (uint8_t)(decode >> l);
+  T decode = 0;
+  memcpy(&decode, in+start_byte, sizeof(T));
+  decode >>=(uint8_t)start_bit;
+  decode &= (((T)1<<(uint8_t)(l+8))-1);
+
+  *ori_length = (uint8_t)(decode >> (uint8_t)l);
   //bool sign = (decode & ((T)1 << (l - 1)));
-  bool sign = (decode >> (l - 1)) & 1;
-  T value = (decode & (((T)1 << (l - 1)) - 1));
+  bool sign = (decode >> (uint8_t)(l - 1)) & 1;
+  T value = (decode & (((T)1 << (uint8_t)(l - 1)) - 1));
   T pred = theta0 + theta1 * to_find;
   if (sign)
   {
@@ -259,19 +278,19 @@ uint8_t * write_delta_string(T *in, std::vector<bool>& signvec, uint8_t * string
             bool sign = signvec[readind];
             T tmpnum = tmpin[0];
             T value1 =
-                (tmpnum & ((((T)1) << (l - 1)) - 1)) 
-               + (((T)sign) << (l - 1));
-            value1 += ((T)string_len[readind])<<l;
+                (tmpnum & ((((T)1) << (uint8_t)(l - 1)) - 1)) 
+               + (((T)sign) << (uint8_t)(l - 1));
+            value1 += ((T)string_len[readind])<<(uint8_t)l;
 
 
-            code += (value1 << occupy);
+            code += (value1 << (uint8_t)occupy);
             occupy += (l+8);
             tmpin++;
             readind++;
         } //end while
         while (occupy >= 8)
         {
-            left_val = code >> 8;
+            left_val = code >> (uint8_t)8;
             //std::cout<<code<<std::endl;
             code = code & ((1 << 8) - 1);
             uint8_t tmp_char = code;
@@ -282,6 +301,13 @@ uint8_t * write_delta_string(T *in, std::vector<bool>& signvec, uint8_t * string
             //std::cout<<occupy<<" "<<left_val<<" "<<unsigned(out[0])<<std::endl;
             out++;
         }
+    }
+    
+    int pad = ceil((sizeof(T)*8 - l)/8);
+    for (int i = 0; i < pad; i++)
+    {
+        out[0] = 0;
+        out++;
     }
     return out;
 }

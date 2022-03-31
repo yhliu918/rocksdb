@@ -38,7 +38,7 @@
   allow_ingest_behind=false
   lowest_used_cache_tier=kNonVolatileBlockTier
   avoid_flush_during_recovery=false
-  info_log_level=DEBUG_LEVEL
+  info_log_level=INFO_LEVEL
   access_hint_on_compaction_start=NORMAL
   max_bgerror_resume_count=2147483647
   write_thread_slow_yield_usec=3
@@ -76,7 +76,7 @@
   db_write_buffer_size=0
   create_missing_column_families=false
   paranoid_checks=true
-  create_if_missing=true
+  create_if_missing=false
   wal_filter=nullptr
   max_manifest_file_size=1073741824
   allow_2pc=false

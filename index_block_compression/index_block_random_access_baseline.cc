@@ -1,3 +1,4 @@
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 #include <stdio.h>
 
 #include <algorithm>
@@ -186,8 +187,8 @@ void randomaccess(std::string key_file, std::string seek_key_path, std::string o
   int seek_num = seek_keys.size();
   Random rnd(301);
   double start = clock();
-
-  for (int i = 0; i < seek_num; i++) {
+  int seek_count = seek_num*10;
+  for (int i = 0; i < seek_count; i++) {
     // find a random key in the lookaside array
     // iter->SeekToFirst();
 
@@ -200,16 +201,16 @@ void randomaccess(std::string key_file, std::string seek_key_path, std::string o
     IndexValue v = iter->value();
 
 
-    //v.handle.offset();
-    assert(v.handle.offset() == block_handles[index].offset());
-    assert(v.handle.size() == block_handles[index].size());
+    v.handle.offset();
+    // assert(v.handle.offset() == block_handles[index].offset());
+    // assert(v.handle.size() == block_handles[index].size());
 
 
   }
   delete iter;
   double end = clock();
   std::cout << "random access "
-            << (end - start) * 1000000000 / (seek_num * CLOCKS_PER_SEC)
+            << (end - start) * 1000000000 / (seek_count * CLOCKS_PER_SEC)
             << " ns per record" << std::endl;
 
 }

@@ -2,7 +2,7 @@
 //  This source code is licensed under both the GPLv2 (found in the
 //  COPYING file in the root directory) and Apache 2.0 License
 //  (found in the LICENSE.Apache file in the root directory).
-
+#pragma GCC diagnostic ignored "-Wunused-result"
 #include <endian.h>
 #include <errno.h>
 #include <time.h>
@@ -29,7 +29,7 @@
 
 // assume compression ratio = 0.5
 void setValueBuffer(char* value_buf, int size, std::mt19937_64& e,
-                    std::uniform_int_distribution<unsigned long long>& dist) {
+                    std::uniform_int_distribution<unsigned long long>& dist, std::string key) {
   memset(value_buf, 0, size);
   int pos = size / 2;
   while (pos < size) {
@@ -38,12 +38,12 @@ void setValueBuffer(char* value_buf, int size, std::mt19937_64& e,
     memcpy(value_buf + pos, num_bytes, 8);
     pos += 8;
   }
+  memcpy(value_buf, key.c_str(), key.size());
 }
 
 void init(const std::string& key_path, const std::string& db_path,
           rocksdb::DB** db, rocksdb::Options* options,
-          rocksdb::BlockBasedTableOptions* table_options, int use_direct_io,
-          uint64_t key_count, uint64_t value_size, int filter_type,
+          rocksdb::BlockBasedTableOptions* table_options, int use_direct_io, uint64_t key_count, uint64_t value_size, int filter_type,
           int compression_type) {
   std::mt19937_64 e(2017);
   std::uniform_int_distribution<unsigned long long> dist(0, ULLONG_MAX);
@@ -101,7 +101,7 @@ void init(const std::string& key_path, const std::string& db_path,
   table_options->padding_enable = true;
   table_options->leco_block_size = 64;
   table_options->total_length = key_count;
-  table_options->key_num_per_block = 16;
+  table_options->key_num_per_block = 32;
 
 
 
@@ -134,10 +134,10 @@ void init(const std::string& key_path, const std::string& db_path,
   // options->prefix_extractor = nullptr;
   // options->disable_auto_compactions = false;
   rocksdb::Status status = rocksdb::DB::Open(*options, db_path, db);
-  if (!status.ok()) {
-    std::cout << "creating new DB\n";
-    options->create_if_missing = true;
-    status = rocksdb::DB::Open(*options, db_path, db);
+  // if (!status.ok()) {
+  //   std::cout << "creating new DB\n";
+  //   options->create_if_missing = true;
+  //   status = rocksdb::DB::Open(*options, db_path, db);
 
     if (!status.ok()) {
       std::cout << status.ToString().c_str() << "\n";
@@ -149,47 +149,62 @@ void init(const std::string& key_path, const std::string& db_path,
     std::vector<std::string> keys;
 
     std::string key;
-    for (uint64_t i = 0; i < key_count; i++) {
+    for(uint64_t i = 0; i < key_count; i++) {
+      
       keyFile >> key;
       keys.push_back(key);
     }
+    // while (1) {
+    //   keyFile >> key;
+    //   keys.push_back(key);
+    //   if (keyFile.eof()) {
+    //     break;
+    //   }
+    // }
+    // uint64_t key_count = keys.size();
+    
 
-    std::cout << "inserting keys\n";
-    for (uint64_t i = 0; i < key_count; i++) {
-      key = keys[i];
-      //key = htobe64(key);
-      // reverse(key.begin(), key.end());
 
-      rocksdb::Slice s_key(key);
-      // rocksdb::Slice s_key(key.c_str(), key.size());
-      setValueBuffer(value_buf, value_size, e, dist);
-      rocksdb::Slice s_value(value_buf, value_size);
-
-      status = (*db)->Put(rocksdb::WriteOptions(), s_key, s_value);
-      if (!status.ok()) {
-        std::cout << status.ToString().c_str() << "\n";
-        assert(false);
-      }
-
-      if (i % (key_count / 100) == 0)
-        std::cout << i << "/" << key_count << " ["
-                  << ((i + 0.0) / (key_count + 0.0) * 100.) << "]\n";
-    }
+    // std::cout << "inserting keys\n";
+    // for (uint64_t i = 0; i < key_count; i++) {
+    //   key = keys[i];
+    //   //key = htobe64(key);
+    //   // reverse(key.begin(), key.end());
+    //   rocksdb::Slice s_key(key);
+    //   // rocksdb::Slice s_key(key.c_str(), key.size());
+    //   setValueBuffer(value_buf, value_size, e, dist, key);
+    //   rocksdb::Slice s_value(value_buf, value_size);
+    //   //std::cout<<value_buf<<"\n";
+    //   status = (*db)->Put(rocksdb::WriteOptions(), s_key, s_value);
+    //   if (!status.ok()) {
+    //     std::cout << status.ToString().c_str() << "\n";
+    //     assert(false);
+    //   }
+    //   if (i % (key_count / 100) == 0)
+    //     std::cout << i << "/" << key_count << " ["
+    //               << ((i + 0.0) / (key_count + 0.0) * 100.) << "]\n";
+    // }
   
 
     rocksdb::Random rnd(301);
+    std::string prev = "";
+    uint64_t key_num = key_count *10;
     double start = clock();
-    for (uint64_t i = 0; i < key_count/10; i++) {
+    for (uint64_t i = 0; i < key_num; i++) {
       //int index = random() % key_count;
+      //int index = i;
       int index = rnd.Uniform(key_count);
       key = keys[index];
+      
       rocksdb::Slice s_key(key);
       std::string value;
       status = (*db)->Get(rocksdb::ReadOptions(), s_key, &value);
-
-      if(i % (key_count / 100) == 0)
-        std::cout << i << "/" << key_count << " ["
-                  << ((i + 0.0) / (key_count + 0.0) * 100.) << "]\n";
+      // std::cout<<value.c_str()<<std::endl;
+      // std::cout<< " truth: "<<key.c_str()<<std::endl;
+      // assert(strncmp(value.c_str(), key.c_str(), key.size()) == 0);
+      if(i % (key_num / 100) == 0)
+        std::cout << i << "/" << key_num << " ["
+                  << ((i + 0.0) / (key_num + 0.0) * 100.) << "]\n";
       
     }
     double end = clock();
@@ -201,7 +216,7 @@ void init(const std::string& key_path, const std::string& db_path,
     // std::cout << "compacting\n";
     // rocksdb::CompactRangeOptions compact_range_options;
     //(*db)->CompactRange(compact_range_options, NULL, NULL);
-  }
+  //}
 }
 
 void close(rocksdb::DB* db) { delete db; }
@@ -590,14 +605,15 @@ int main(int argc, const char* argv[]) {
 
   //const std::string kKeyPath = "/home/lyh/string_data/email_list/padding_a_prefix.txt";
   //"/home/zxy/rocksdb/index_block_compression/poisson_timestamps.csv";
-  const std::string kKeyPath = "/home/lyh/string_data/email_list/wholestring_min_12_max_24.txt";
+  // const std::string kKeyPath = "/home/lyh/string_data/email_list/wholestring_min_12_max_24.txt";
+  const std::string kKeyPath = "/home/lyh/rocksdb/dump_data/wholestring_min_12_max_24_no_repeat.txt";
   // const std::string kKeyPath = "/home/lyh/Learn-to-Compress/scripts/poisson_timestamps_20000.csv";
   const uint64_t kValueSize = 1000;
   const uint64_t kKeyRange = 10000000000000;
   const uint64_t kQueryCount = 50000;
 
   // 2GB config
-  const uint64_t kKeyCount = 2000000;
+  const uint64_t kKeyCount = 500000;
   const uint64_t kWarmupSampleGap = 100;
 
   // 100GB config
@@ -611,8 +627,8 @@ int main(int argc, const char* argv[]) {
   rocksdb::BlockBasedTableOptions table_options;
 
   init(kKeyPath, db_path, &db, &options, &table_options, use_direct_io,
-       kKeyCount, kValueSize, filter_type, compression_type);
-
+        kKeyCount, kValueSize, filter_type, compression_type);
+  system("cat /proc/$PPID/io");
   if (query_type == 0) return 0;
 
   //=========================================================================

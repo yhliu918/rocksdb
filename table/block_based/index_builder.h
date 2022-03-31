@@ -506,7 +506,9 @@ class LecoIndexBuilder : public IndexBuilder {
   }
 
   virtual size_t IndexSize() const override { return index_size_; }
-
+  virtual bool seperator_is_key_plus_seq() override {
+    return false;
+  }
 
  private:
   BlockBuilder_leco index_block_builder_;

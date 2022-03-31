@@ -269,9 +269,16 @@ inline uint8_t randomdecodeArray8_string(const char* in, int idx, T* result, int
   read_bit_fix_string<T>(tmpin, maxbits, idx, theta1, theta0, result, &ori_length);
 
   int shift = (block_pad_length - ori_length);
-  *result = *result >> (8 * shift);
-  *result = *result<<(8 * shift);
-  *result = *result >> (8 * (block_pad_length - length));
+  *result = *result >> (uint8_t)(8 * shift);
+  *result = *result<<(uint8_t)(8 * shift);
+  int tmp_length = block_pad_length - length;
+  if(tmp_length>0) {
+    *result = *result >> (uint8_t)(8 * tmp_length);
+  }
+  else{
+    *result = *result << (uint8_t)(8 * (-tmp_length));
+  }
+  //*result = *result >> (uint8_t)(8 * std::max(block_pad_length - length, 0));
 
   return ori_length;
 }
@@ -308,7 +315,6 @@ class Leco_integral {
     }
     //std::cout<<"delta[1] "<<delta[1]<<std::endl;
     int tmp_bit = bits_T<uint64_t>(max_error) + 1;
-
     out[0] = (uint8_t)tmp_bit;
     out++;
     double theta0 = mylr.theta0;

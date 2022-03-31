@@ -399,7 +399,7 @@ void IndexBlockIter::SeekImpl(const Slice& target) {
     skip_linear_scan = true;
   } else if (using_leco_encode_) {
     ok = BinarySeek_leco<leco_t>(seek_key, &index);
-    // std::cout<< "key "<< seek_key.ToString() << " index " << index << std::endl;
+    //std::cout<< "key "<< seek_key.ToString() << " index " << index << std::endl;
     skip_linear_scan = true;
     if (!ok) {
       status_ = Status::NotFound();
@@ -826,7 +826,7 @@ bool pre_Bsearch(int left, int right, int* index, const char * key,
       
       
       
-      int cmp = strncmp(firstkey_each_block + mid * string_len + 1, key,
+      int cmp = memcmp(firstkey_each_block + mid * string_len + 1, key,
                        search_len);
       // std::string string_comp(firstkey_each_block + mid * string_len + 1, search_len);
       // std::cout<<"comparing with "<<string_comp<<std::endl;
@@ -917,9 +917,10 @@ bool BlockIter<TValue>::BinarySeek_leco(Slice& target, uint32_t* index) {
                 max_padding_length+sizeof(uint8_t), data_+sizeof(uint32_t) * 4+sizeof(uint8_t), target.size());
   }
   if (!skip_linear) {
-    T record = convertToASCII_char<T>(target.data(), target.size());
+    T record = 0;
+    convertToASCII_char<T>(target.data(), target.size(), &record);
 
-    int left = index_search * interval - 1;
+    int left = index_search * interval;
     int block_left = left / block_size_;
     if (left % block_size_){
       block_left += 1;
@@ -939,7 +940,8 @@ bool BlockIter<TValue>::BinarySeek_leco(Slice& target, uint32_t* index) {
 
       T data_mid;
       uint8_t origin_string_length = randomdecodeArray8_string<T>(data_+ data_offset + block_number * 4 + start_byte, mid % block_size_, &data_mid, target.size());
-
+      // std::string mid_string = convertToString<T>(&data_mid, origin_string_length, target.size());
+      // std::cout<<"data_mid: "<<mid_string<<std::endl;
       if (data_mid == record) {
         
         if (origin_string_length == target.size()) {
@@ -958,7 +960,7 @@ bool BlockIter<TValue>::BinarySeek_leco(Slice& target, uint32_t* index) {
         left = mid;
       }
     }
-    *index = static_cast<uint32_t>(left);
+    *index = static_cast<uint32_t>(left)+1;
     
   }
   else{

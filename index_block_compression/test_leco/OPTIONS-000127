@@ -76,7 +76,7 @@
   db_write_buffer_size=0
   create_missing_column_families=false
   paranoid_checks=true
-  create_if_missing=true
+  create_if_missing=false
   wal_filter=nullptr
   max_manifest_file_size=1073741824
   allow_2pc=false

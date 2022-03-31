@@ -1,3 +1,4 @@
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 #include <stdio.h>
 
 #include <algorithm>
@@ -188,32 +189,29 @@ std::vector<std::string> seek_keys;
   Random rnd(301);
   double start = clock();
 
-  for (int i = 0; i < seek_num; i++) {
+  int seek_count = seek_num * 10;
+  for (int i = 0; i < seek_count; i++) {
     // find a random key in the lookaside array
     // iter->SeekToFirst();
 
     int index = rnd.Uniform(seek_num);
     
-    // int index = i;
+    //int index = i;
 
     Slice k(seek_keys[index]);
-    // std::cout<< "index "<< index<<" key "<< k.ToString()<<std::endl;
+    //std::cout<< "index "<< index<<" key "<< k.ToString()<<std::endl;
     // std::cout<<"offset "<<block_handles[index].offset()<<" size "<<block_handles[index].size()<<std::endl;
 
     //  search in block for this key
-
     iter->Seek(k);
     IndexValue v = iter->value();
-
-    // int block_ind = block_index_map[index] - 1;
-
-    //v.handle.offset();
+    v.handle.offset();
     // std::cout<< "index "<< index<<" key "<< seek_keys[index]<<std::endl;
-    // std::cout<<"offset "<<v.handle.offset()<<" truth: "<<block_handles[index].offset()<<std::endl;
-    // std::cout<<"size "<<v.handle.size()<<" truth: "<<block_handles[index].size()<<std::endl;
+    // std::cout<<"offset "<<v.handle.offset()<<" truth: "<<block_handles[std::min(index/4,seek_num-1)].offset()<<std::endl;
+    // std::cout<<"size "<<v.handle.size()<<" truth: "<<block_handles[std::min(index/4,seek_num-1)].size()<<std::endl;
     
-    assert(v.handle.offset() == block_handles[index].offset());
-    assert(v.handle.size() == block_handles[index].size());
+    assert(v.handle.offset() == block_handles[std::min(index/4,N-1)].offset());
+    assert(v.handle.size() == block_handles[std::min(index/4,N-1)].size());
     // assert(iter->key().ToString() == keys[index]);
 
     // assert(v.handle.offset() == block_handles[block_ind].offset());
@@ -228,7 +226,7 @@ std::vector<std::string> seek_keys;
   delete iter;
   double end = clock();
   std::cout << "random access "
-            << (end - start) * 1000000000 / (seek_num * CLOCKS_PER_SEC)
+            << (end - start) * 1000000000 / (seek_count * CLOCKS_PER_SEC)
             << " ns per record" << std::endl;
 
 }

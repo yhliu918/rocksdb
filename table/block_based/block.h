@@ -427,9 +427,9 @@ class BlockIter : public InternalIteratorBase<TValue> {
     if (!Valid()) {
       return;
     }
-    if(using_leco_encode_) {
-      return;
-    }
+    // if(using_leco_encode_) {
+    //   return;
+    // }
     if (raw_key_.IsUserKey()) {
       assert(global_seqno_ == kDisableGlobalSequenceNumber);
       key_ = raw_key_.GetUserKey();
