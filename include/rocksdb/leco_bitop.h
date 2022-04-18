@@ -221,13 +221,17 @@ void read_bit_fix_string(const uint8_t *in, uint32_t l, uint32_t to_find, T thet
   //   start_byte++;
   // }
 
+
+  
   T decode = 0;
   memcpy(&decode, in+start_byte, sizeof(T));
   decode >>=(uint8_t)start_bit;
   decode &= (((T)1<<(uint8_t)(l+8))-1);
+  // T one = 1;
+  // one.left_shift((uint8_t)(l+8) ,*result);
+  // decode &= (*result - 1);
 
-  *ori_length = (uint8_t)(decode >> (uint8_t)l);
-  //bool sign = (decode & ((T)1 << (l - 1)));
+  *ori_length = (uint8_t)(decode >> (uint8_t)l); // TODO: maybe right shift?
   bool sign = (decode >> (uint8_t)(l - 1)) & 1;
   T value = (decode & (((T)1 << (uint8_t)(l - 1)) - 1));
   T pred = theta0 + theta1 * to_find;

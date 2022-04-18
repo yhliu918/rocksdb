@@ -114,7 +114,7 @@ inline leco_uint256& leco_uint256::operator|=(const __uint128_t& rhs) {
   return *this;
 }
 
-leco_uint256& leco_uint256::operator|=(const leco_uint256& rhs) {
+inline leco_uint256& leco_uint256::operator|=(const leco_uint256& rhs) {
   UPPER |= rhs.UPPER;
   LOWER |= rhs.LOWER;
   return *this;
@@ -147,6 +147,9 @@ leco_uint256 leco_uint256::operator<<(const uint8_t& shift) const {
   if (shift == 0) {
     return *this;
   } else if (shift < 128) {
+    // this->UPPER = (UPPER << shift) + (LOWER >> (128 - shift));
+    // this->LOWER <<= shift;
+    // return *this;
     return leco_uint256((UPPER << shift) + (LOWER >> (128 - shift)),
                         LOWER << shift);
   } else if ((256 > shift) && (shift > 128)) {
@@ -155,11 +158,26 @@ leco_uint256 leco_uint256::operator<<(const uint8_t& shift) const {
     return leco_uint256(LOWER, leco_uint128_0);
   } else {
     return leco_uint256_0;
+    // return *this;
   }
 }
 
-inline leco_uint256& leco_uint256::operator<<=(const uint8_t& shift) {
-  *this = *this << shift;
+leco_uint256& leco_uint256::operator<<=(const uint8_t& shift) {
+  if (shift == 0) {
+    return *this;
+  } else if (shift < 128) {
+    UPPER = (UPPER << shift) + (LOWER >> (128 - shift));
+    LOWER <<= shift;
+  } else if ((256 > shift) && (shift > 128)) {
+    UPPER = LOWER << (shift - leco_uint128_128);
+    LOWER = leco_uint128_0;
+  } else if (shift == 128) {
+    UPPER = LOWER << (shift - leco_uint128_128);
+    LOWER = leco_uint128_0;
+  } else {
+    UPPER = 0;
+    LOWER = 0;
+  }
   return *this;
 }
 
@@ -211,7 +229,20 @@ leco_uint256 leco_uint256::operator>>(const uint8_t& shift) const {
 }
 
 leco_uint256& leco_uint256::operator>>=(const uint8_t& shift) {
-  *this = *this >> shift;
+  if (shift == 0) {
+    return *this;
+  } else if (shift < 128) {
+    LOWER = (UPPER << (128 - shift)) + (LOWER >> shift);
+    UPPER >>= shift;
+  } else if ((256 > shift) && (shift > 128)) {
+    LOWER = UPPER >> (shift - 128);
+    UPPER = 0;
+  } else if (shift == 128) {
+    LOWER = UPPER;
+    UPPER = 0;
+  } else {
+    *this = 0;
+  }
   return *this;
 }
 

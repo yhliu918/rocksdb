@@ -23,6 +23,7 @@
 #include <string.h>
 #include <cstdio>
 #include <string>
+#include <iostream>
 
 #ifdef __cpp_lib_string_view
 #include <string_view>
@@ -248,6 +249,7 @@ inline int Slice::compare(const Slice& b) const {
   assert(data_ != nullptr && b.data_ != nullptr);
   const size_t min_len = (size_ < b.size_) ? size_ : b.size_;
   int r = memcmp(data_, b.data_, min_len);
+  // std::cout<<min_len<<" "<<data_<<std::endl;
   if (r == 0) {
     if (size_ < b.size_)
       r = -1;

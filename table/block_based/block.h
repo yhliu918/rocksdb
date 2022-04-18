@@ -390,6 +390,7 @@ class BlockIter : public InternalIteratorBase<TValue> {
   Slice value_;
   uint64_t offset_;
   uint64_t size_;
+  int search_index;
   Status status_;
   // Key to be exposed to users.
   Slice key_;
@@ -670,7 +671,7 @@ class IndexBlockIter final : public BlockIter<IndexValue> {
       // offset = reinterpret_cast<const uint64_t*>(v.data())[0];
       // size = reinterpret_cast<const uint64_t*>(v.data())[1];
       //std::cout<< "offset: " << offset_ << " size: " << size_ << std::endl;
-      BlockHandle handle(offset_,size_);
+      BlockHandle handle(offset_,current_);
       IndexValue ret(handle,"");
       return ret;
       

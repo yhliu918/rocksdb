@@ -187,19 +187,19 @@ Status SstFileDumper::DumpTable(const std::string& out_filename) {
   std::unique_ptr<WritableFile> out_file_key;
   std::unique_ptr<WritableFile> out_file_size;
   std::unique_ptr<WritableFile> out_file_offset;
-  s = env->NewWritableFile("/home/lyh/rocksdb/dump_data/wholestring_min_12_max_24_key.txt", &out_file_key, soptions_);
+  s = env->NewWritableFile("/home/lyh/rocksdb/dump_data/wholestring_min_16_max_24_key.txt", &out_file_key, soptions_);
   if (!s.ok()) {
     // close the file before return error, ignore the close error if there's any
     out_file_key->Close().PermitUncheckedError();
     return s;
   }
-  s = env->NewWritableFile("/home/lyh/rocksdb/dump_data/wholestring_min_12_max_24_offset.txt", &out_file_offset, soptions_);
+  s = env->NewWritableFile("/home/lyh/rocksdb/dump_data/wholestring_min_16_max_24_offset.txt", &out_file_offset, soptions_);
   if (!s.ok()) {
     // close the file before return error, ignore the close error if there's any
     out_file_offset->Close().PermitUncheckedError();
     return s;
   }
-  s = env->NewWritableFile("/home/lyh/rocksdb/dump_data/wholestring_min_12_max_24_size.txt", &out_file_size, soptions_);
+  s = env->NewWritableFile("/home/lyh/rocksdb/dump_data/wholestring_min_16_max_24_size.txt", &out_file_size, soptions_);
   if (!s.ok()) {
     // close the file before return error, ignore the close error if there's any
     out_file_size->Close().PermitUncheckedError();

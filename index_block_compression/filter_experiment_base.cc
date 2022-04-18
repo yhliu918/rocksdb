@@ -136,10 +136,10 @@ void init(const std::string& key_path, const std::string& db_path,
   // options->prefix_extractor = nullptr;
   // options->disable_auto_compactions = false;
   rocksdb::Status status = rocksdb::DB::Open(*options, db_path, db);
-  // if (!status.ok()) {
-  //   std::cout << "creating new DB\n";
-  //   options->create_if_missing = true;
-  //   status = rocksdb::DB::Open(*options, db_path, db);
+  if (!status.ok()) {
+    std::cout << "creating new DB\n";
+    options->create_if_missing = true;
+    status = rocksdb::DB::Open(*options, db_path, db);
 
     if (!status.ok()) {
       std::cout << status.ToString().c_str() << "\n";
@@ -156,27 +156,27 @@ void init(const std::string& key_path, const std::string& db_path,
       keys.push_back(key);
     }
 
-    // std::cout << "inserting keys\n";
-    // for (uint64_t i = 0; i < key_count; i++) {
-    //   key = keys[i];
-    //   //key = htobe64(key);
-    //   // reverse(key.begin(), key.end());
+    std::cout << "inserting keys\n";
+    for (uint64_t i = 0; i < key_count; i++) {
+      key = keys[i];
+      //key = htobe64(key);
+      // reverse(key.begin(), key.end());
 
-    //   rocksdb::Slice s_key(key);
-    //   // rocksdb::Slice s_key(key.c_str(), key.size());
-    //   setValueBuffer(value_buf, value_size, e, dist, key);
-    //   rocksdb::Slice s_value(value_buf, value_size);
+      rocksdb::Slice s_key(key);
+      // rocksdb::Slice s_key(key.c_str(), key.size());
+      setValueBuffer(value_buf, value_size, e, dist, key);
+      rocksdb::Slice s_value(value_buf, value_size);
 
-    //   status = (*db)->Put(rocksdb::WriteOptions(), s_key, s_value);
-    //   if (!status.ok()) {
-    //     std::cout << status.ToString().c_str() << "\n";
-    //     assert(false);
-    //   }
+      status = (*db)->Put(rocksdb::WriteOptions(), s_key, s_value);
+      if (!status.ok()) {
+        std::cout << status.ToString().c_str() << "\n";
+        assert(false);
+      }
 
-    //   if (i % (key_count / 100) == 0)
-    //     std::cout << i << "/" << key_count << " ["
-    //               << ((i + 0.0) / (key_count + 0.0) * 100.) << "]\n";
-    // }
+      if (i % (key_count / 100) == 0)
+        std::cout << i << "/" << key_count << " ["
+                  << ((i + 0.0) / (key_count + 0.0) * 100.) << "]\n";
+    }
 
     rocksdb::Random rnd(301);
     std::string prev = "";
@@ -205,7 +205,7 @@ void init(const std::string& key_path, const std::string& db_path,
     // std::cout << "compacting\n";
     // rocksdb::CompactRangeOptions compact_range_options;
     //(*db)->CompactRange(compact_range_options, NULL, NULL);
-  //}
+  }
 }
 
 void close(rocksdb::DB* db) { delete db; }
@@ -594,15 +594,15 @@ int main(int argc, const char* argv[]) {
 
   //const std::string kKeyPath = "/home/lyh/string_data/email_list/padding_a_prefix.txt";
   //"/home/zxy/rocksdb/index_block_compression/poisson_timestamps.csv";
-  // const std::string kKeyPath = "/home/lyh/rocksdb/dump_data/wholestring_min_12_max_24.txt";
-  const std::string kKeyPath = "/home/lyh/rocksdb/dump_data/wholestring_min_12_max_24_no_repeat.txt";
+  const std::string kKeyPath = "/home/lyh/rocksdb/dump_data/wholestring_min_16_max_24.txt";
+  // const std::string kKeyPath = "/home/lyh/rocksdb/dump_data/wholestring_min_12_max_24_no_repeat.txt";
   // const std::string kKeyPath = "/home/lyh/Learn-to-Compress/scripts/poisson_timestamps_20000.csv";
   const uint64_t kValueSize = 1000;
   const uint64_t kKeyRange = 10000000000000;
   const uint64_t kQueryCount = 50000;
 
   // 2GB config
-  const uint64_t kKeyCount = 500000;
+  const uint64_t kKeyCount = 2000000;
   const uint64_t kWarmupSampleGap = 100;
 
   // 100GB config

@@ -2,7 +2,7 @@
 #define LECO_UINT256_H
 #pragma once
 #include <stdint.h>
-
+#pragma GCC diagnostic ignored "-Wtype-limits"
 #include <type_traits>
 const __uint128_t leco_uint128_0(0);
 const __uint128_t leco_uint128_1(1);
@@ -346,7 +346,20 @@ class leco_uint256 {
 
   // Bit Shift Operators
   leco_uint256 operator<<(const uint8_t& shift) const;
-  inline leco_uint256& operator<<=(const uint8_t& shift);
+  leco_uint256& operator<<=(const uint8_t& shift);
+  inline void left_shift(const uint8_t& shift, leco_uint256& result) {
+    if (shift < 128) {
+      result.UPPER = (UPPER << shift) & (LOWER >> (128 - shift));
+      result.LOWER = LOWER << shift;
+    } else if ((256 > shift) && (shift > 128)) {
+      result.UPPER = LOWER << (shift - leco_uint128_128);
+      result.LOWER = leco_uint128_0;
+    } else if (shift == 128) {
+      result.LOWER = leco_uint128_0;
+    } else {
+      result = 0;
+    }
+  }
   // leco_uint256 operator<<(const __uint128_t& shift) const;
   // leco_uint256 operator<<(const leco_uint256& shift) const;
 
@@ -368,7 +381,20 @@ class leco_uint256 {
 
   leco_uint256 operator>>(const uint8_t& shift) const;
   leco_uint256& operator>>=(const uint8_t& shift);
-
+  inline void right_shift(const uint8_t& shift, leco_uint256& result) {
+    if (shift < 128) {
+      result.UPPER = UPPER >> shift;
+      result.LOWER = (UPPER << (128 - shift)) & (LOWER >> shift);
+    } else if ((256 > shift) && (shift > 128)) {
+      result.UPPER = 0;
+      result.LOWER = UPPER >> (shift - 128);
+    } else if (shift == 128) {
+      result.UPPER = 0;
+      result.LOWER = UPPER;
+    } else {
+      result = 0;
+    }
+  }
   // leco_uint256 operator>>(const __uint128_t& shift) const;
   // leco_uint256 operator>>(const leco_uint256& shift) const;
 

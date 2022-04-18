@@ -201,7 +201,7 @@ void init(const std::string& key_path, const std::string& db_path,
       status = (*db)->Get(rocksdb::ReadOptions(), s_key, &value);
       // std::cout<<value.c_str()<<std::endl;
       // std::cout<< " truth: "<<key.c_str()<<std::endl;
-      // assert(strncmp(value.c_str(), key.c_str(), key.size()) == 0);
+      assert(strncmp(value.c_str(), key.c_str(), key.size()) == 0);
       if(i % (key_num / 100) == 0)
         std::cout << i << "/" << key_num << " ["
                   << ((i + 0.0) / (key_num + 0.0) * 100.) << "]\n";
@@ -216,7 +216,7 @@ void init(const std::string& key_path, const std::string& db_path,
     // std::cout << "compacting\n";
     // rocksdb::CompactRangeOptions compact_range_options;
     //(*db)->CompactRange(compact_range_options, NULL, NULL);
-  //}
+  // }
 }
 
 void close(rocksdb::DB* db) { delete db; }
@@ -605,15 +605,15 @@ int main(int argc, const char* argv[]) {
 
   //const std::string kKeyPath = "/home/lyh/string_data/email_list/padding_a_prefix.txt";
   //"/home/zxy/rocksdb/index_block_compression/poisson_timestamps.csv";
-  // const std::string kKeyPath = "/home/lyh/string_data/email_list/wholestring_min_12_max_24.txt";
-  const std::string kKeyPath = "/home/lyh/rocksdb/dump_data/wholestring_min_12_max_24_no_repeat.txt";
+  const std::string kKeyPath = "/home/lyh/string_data/email_list/wholestring_min_12_max_24.txt";
+  // const std::string kKeyPath = "/home/lyh/rocksdb/dump_data/wholestring_min_12_max_24_no_repeat.txt";
   // const std::string kKeyPath = "/home/lyh/Learn-to-Compress/scripts/poisson_timestamps_20000.csv";
   const uint64_t kValueSize = 1000;
   const uint64_t kKeyRange = 10000000000000;
   const uint64_t kQueryCount = 50000;
 
   // 2GB config
-  const uint64_t kKeyCount = 500000;
+  const uint64_t kKeyCount = 3000000;
   const uint64_t kWarmupSampleGap = 100;
 
   // 100GB config

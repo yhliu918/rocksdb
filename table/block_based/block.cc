@@ -825,13 +825,21 @@ bool pre_Bsearch(int left, int right, int* index, const char * key,
       int64_t mid = left + (right - left + 1) / 2;
       
       
-      
-      int cmp = memcmp(firstkey_each_block + mid * string_len + 1, key,
-                       search_len);
-      // std::string string_comp(firstkey_each_block + mid * string_len + 1, search_len);
-      // std::cout<<"comparing with "<<string_comp<<std::endl;
-      // need another length info when storing each first key.
+      // uint8_t first_key_length = reinterpret_cast<const uint8_t*>(firstkey_each_block+ mid * string_len)[0];
+      // const size_t min_len = (first_key_length < search_len) ? first_key_length : search_len;
+      // int cmp = memcmp(firstkey_each_block + mid * string_len + 1, key, min_len);
+      // if (cmp == 0) {
+      //   if (first_key_length < search_len)
+      //     cmp = -1;
+      //   else if (first_key_length > search_len)
+      //     cmp = 1;
+      // }
+      int cmp = memcmp(firstkey_each_block + mid * string_len + 1, key, search_len);
 
+
+      // std::string string_comp(firstkey_each_block + mid * string_len + 1, search_len);
+      // std::cout<< search_len<<" "<<string_comp<<std::endl;
+      // need another length info when storing each first key.
       if (cmp<0) {
         // Key at "mid" is smaller than "target". Therefore all
         // blocks before "mid" are uninteresting.
@@ -841,19 +849,17 @@ bool pre_Bsearch(int left, int right, int* index, const char * key,
         // after "mid" are uninteresting.
         right = mid - 1;
       } else {
+
         uint8_t first_key_length = reinterpret_cast<const uint8_t*>(firstkey_each_block+ mid * string_len)[0];
-        
-        if(search_len == first_key_length){
+        if (first_key_length < search_len)
+          left = mid;
+        else if (first_key_length > search_len)
+          right = mid - 1;
+        else{
           *skip_linear_scan = true; 
-          // because if the key diff with the first key only of length, skiping linear scan would be wrong
           left = right = mid;
         }
-        else if(search_len< first_key_length){
-            right = mid - 1;
-        }
-        else{
-            left = mid;
-        }
+
         
       }
     }

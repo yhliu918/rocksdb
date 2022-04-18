@@ -1466,6 +1466,18 @@ DEFINE_double(cuckoo_hash_ratio, 0.9, "Hash ratio for Cuckoo SST table.");
 DEFINE_bool(use_hash_search, false, "if use kHashSearch "
             "instead of kBinarySearch. "
             "This is valid if only we use BlockTable");
+DEFINE_bool(use_leco_search, false, "if use kBinarySearchLeco "
+            "instead of kBinarySearch. "
+            "This is valid if only we use BlockTable");
+DEFINE_bool(padding_enable, true, "if pad string when compression "
+            "when using kBinarySearchLeco. "
+            "This is valid if only we use BlockTable");
+DEFINE_int32(leco_block_size, 64,
+             "If Using Leco encoded binary search, "
+             "set the number of keys in a compressed block.");
+DEFINE_int32(key_num_per_block, 32,
+             "If Using Leco encoded binary search, "
+             "set number of uncompressed key stored in a compressed block.");
 DEFINE_bool(use_block_based_filter, false, "if use kBlockBasedFilter "
             "instead of kFullFilter for filter block. "
             "This is valid if only we use BlockTable");
@@ -4074,6 +4086,13 @@ class Benchmark {
           exit(1);
         }
         block_based_options.index_type = BlockBasedTableOptions::kHashSearch;
+      }else if(FLAGS_use_leco_search) {
+          block_based_options.index_type =
+              BlockBasedTableOptions::kBinarySearchLeco;
+          block_based_options.padding_enable = FLAGS_padding_enable;
+          block_based_options.leco_block_size = FLAGS_leco_block_size;
+          block_based_options.key_num_per_block = FLAGS_key_num_per_block;
+        
       } else {
         block_based_options.index_type = BlockBasedTableOptions::kBinarySearch;
       }
@@ -4086,6 +4105,11 @@ class Benchmark {
         if (FLAGS_use_hash_search) {
           fprintf(stderr,
                   "use_hash_search is incompatible with "
+                  "partition index and is ignored");
+        }
+        if (FLAGS_use_leco_search) {
+          fprintf(stderr,
+                  "use_leco_search is incompatible with "
                   "partition index and is ignored");
         }
         block_based_options.index_type =

@@ -127,11 +127,11 @@ void randomaccess(std::string key_file, std::string offset_file,
                        useValueDeltaEncoding);
   int num_records = block_handles.size();
   int key_length = keys[0].size();
-  std::ofstream first_keyfile ("/home/lyh/rocksdb/dump_data/wholestring_min_12_max_32_index_no_repeat.txt");
-  std::ofstream myfile ("/home/lyh/rocksdb/dump_data/wholestring_min_12_max_32_index_key.txt");
-  std::ofstream offfile ("/home/lyh/rocksdb/dump_data/wholestring_min_12_max_32_index_off.txt");
-  std::ofstream sizefile ("/home/lyh/rocksdb/dump_data/wholestring_min_12_max_32_index_size.txt");
-  std::ofstream block_index_file ("/home/lyh/rocksdb/dump_data/wholestring_min_12_max_32_index_block_index.txt");
+  std::ofstream first_keyfile ("/home/lyh/rocksdb/dump_data/wholestring_min_16_max_24_index_no_repeat.txt");
+  std::ofstream myfile ("/home/lyh/rocksdb/dump_data/wholestring_min_16_max_24_index_key.txt");
+  std::ofstream offfile ("/home/lyh/rocksdb/dump_data/wholestring_min_16_max_24_index_off.txt");
+  std::ofstream sizefile ("/home/lyh/rocksdb/dump_data/wholestring_min_16_max_24_index_size.txt");
+  std::ofstream block_index_file ("/home/lyh/rocksdb/dump_data/wholestring_min_16_max_24_index_block_index.txt");
 
   GenerateSeparators(&separators, keys, &first_keys, &block_index);
   int offset = 0;
@@ -194,9 +194,9 @@ void randomaccess(std::string key_file, std::string offset_file,
 }  // namespace ROCKSDB_NAMESPACE
 
 int main() {
-  rocksdb::randomaccess("/home/lyh/rocksdb/dump_data/wholestring_min_12_max_32.txt",
-                        "/home/lyh/rocksdb/dump_data/wholestring_max_30_sep_offset.txt",
-                        "/home/lyh/rocksdb/dump_data/wholestring_max_30_sep_size.txt", 32,
+  rocksdb::randomaccess("/home/lyh/rocksdb/dump_data/wholestring_min_16_max_24.txt",
+                        "/home/lyh/rocksdb/dump_data/wholestring_min_16_max_24_offset.txt",
+                        "/home/lyh/rocksdb/dump_data/wholestring_min_16_max_24_size.txt", 32,
                         true, false);
   return 0;
 }

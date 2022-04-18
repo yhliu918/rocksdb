@@ -187,7 +187,7 @@ void randomaccess(std::string key_file, std::string seek_key_path, std::string o
   int seek_num = seek_keys.size();
   Random rnd(301);
   double start = clock();
-  int seek_count = seek_num*10;
+  int seek_count = seek_num*100;
   for (int i = 0; i < seek_count; i++) {
     // find a random key in the lookaside array
     // iter->SeekToFirst();
@@ -202,8 +202,8 @@ void randomaccess(std::string key_file, std::string seek_key_path, std::string o
 
 
     v.handle.offset();
-    // assert(v.handle.offset() == block_handles[index].offset());
-    // assert(v.handle.size() == block_handles[index].size());
+    assert(v.handle.offset() == block_handles[index].offset());
+    assert(v.handle.size() == block_handles[index].size());
 
 
   }

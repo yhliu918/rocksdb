@@ -170,6 +170,7 @@ std::vector<std::string> seek_keys;
     // append a 8B internal key, because when using Seek()
     // we need to cut off 8B internal key
     seek_keys[i].append("00000000"); 
+    keys[i].append("00000000");
   }
   BlockContents contents;
   contents.data = rawblock;
@@ -189,29 +190,41 @@ std::vector<std::string> seek_keys;
   Random rnd(301);
   double start = clock();
 
-  int seek_count = seek_num * 10;
+  int seek_count = seek_num * 100;
   for (int i = 0; i < seek_count; i++) {
     // find a random key in the lookaside array
     // iter->SeekToFirst();
 
     int index = rnd.Uniform(seek_num);
     
-    //int index = i;
-
-    Slice k(seek_keys[index]);
+    // int index = 587;
+    // std::string seek_key = "00000000275AF403";
+    // seek_key = seek_key.append("00000000");
+    // Slice k(seek_key);
+    std::string key = seek_keys[index];
+    Slice k(key);
     //std::cout<< "index "<< index<<" key "<< k.ToString()<<std::endl;
     // std::cout<<"offset "<<block_handles[index].offset()<<" size "<<block_handles[index].size()<<std::endl;
 
     //  search in block for this key
+
     iter->Seek(k);
-    IndexValue v = iter->value();
+    IndexValue v = iter->value(); // first is offset, second is searched index,
+    // need to verify k>=seek_keys[index] && k<=seek_keys[index+1]
     v.handle.offset();
+
     // std::cout<< "index "<< index<<" key "<< seek_keys[index]<<std::endl;
-    // std::cout<<"offset "<<v.handle.offset()<<" truth: "<<block_handles[std::min(index/4,seek_num-1)].offset()<<std::endl;
-    // std::cout<<"size "<<v.handle.size()<<" truth: "<<block_handles[std::min(index/4,seek_num-1)].size()<<std::endl;
+    // std::cout<<"offset "<<v.handle.offset()<<" truth: "<<block_handles[index].offset()<<std::endl;
+    // std::cout<<"size "<<v.handle.size()<<" truth: "<<block_handles[index].size()<<std::endl;
     
-    assert(v.handle.offset() == block_handles[std::min(index/4,N-1)].offset());
-    assert(v.handle.size() == block_handles[std::min(index/4,N-1)].size());
+    // assert(v.handle.offset() == block_handles[std::min(index/4,N-1)].offset());
+    // assert(v.handle.size() == block_handles[std::min(index/4,N-1)].size());
+    // assert(v.handle.offset() == block_handles[index].offset());
+    int searched_index = v.handle.size();
+    assert((keys[searched_index]).compare(key)<=0);
+    assert(key.compare(keys[std::min(searched_index+1,N-1)])<=0);
+    // std::cout<<"target key "<<key<<" lower bound "<<keys[searched_index]<<" upper bound "<<keys[searched_index+1]<<std::endl;
+
     // assert(iter->key().ToString() == keys[index]);
 
     // assert(v.handle.offset() == block_handles[block_ind].offset());

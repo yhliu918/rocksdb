@@ -1,6 +1,8 @@
 #pragma once
 #pragma GCC diagnostic ignored "-Wsign-compare"
 #pragma GCC diagnostic ignored "-Wbool-compare"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wunused-variable"
 #include <limits>
 
 #include "leco_uint256.h"
@@ -49,6 +51,35 @@ class Leco_string {
       }
     }
   }
+
+  void extract_common_prefix(std::vector<std::string>& string_vec) {
+    for (int i = 0; i < blocks; i++) {
+      int block_length = block_size;
+      if (i == blocks - 1) {
+        block_length = N - (blocks - 1) * block_size;
+      }
+      // compare the first and last string in each block, to extract common prefix
+      std::string first_str = string_vec[i * block_size];
+      std::string last_str = string_vec[i * block_size + block_length - 1];
+      int compare_length = std::min(first_str.size(), last_str.size());
+      int common_prefix_length = 0;
+      for(int j = 0; j < compare_length; j++) {
+        if (first_str[j] != last_str[j]) {
+          common_prefix_length = j;
+          break;
+        }
+      }
+      common_prefix.emplace_back(first_str.substr(0, common_prefix_length));
+      prefix_length.emplace_back(common_prefix_length);
+      for(int j = 0; j < block_length; j++) {
+        string_vec[i * block_size + j] = string_vec[i * block_size + j].substr(
+            common_prefix_length, string_vec[i * block_size + j].size());
+      }
+      
+
+    }
+  }
+
   uint8_t* encodeArray8_string(std::vector<std::string>& string_vec,
                                int start_idx, const size_t length, uint8_t* res,
                                size_t nvalue) {
@@ -105,7 +136,7 @@ class Leco_string {
         tmp_val = 0;
         signvec.emplace_back(false);
       }
-      
+
       delta.emplace_back(tmp_val);
 
       if (tmp_val > max_delta) {
@@ -121,13 +152,16 @@ class Leco_string {
     memcpy(out, &max_bit, sizeof(uint32_t));
     out += sizeof(uint32_t);
     memcpy(out, &padding_length[nvalue], sizeof(uint8_t));
-    out+=sizeof(uint8_t);
+    out += sizeof(uint8_t);
     memcpy(out, &theta0, sizeof(T));
     out += sizeof(T);
     memcpy(out, &theta1, sizeof(T));
     out += sizeof(T);
     if (max_bit) {
-      out = write_delta_string(delta.data(), signvec,string_wo_padding_length.data()+block_size*nvalue, out, max_bit, length);
+      out = write_delta_string(
+          delta.data(), signvec,
+          string_wo_padding_length.data() + block_size * nvalue, out, max_bit,
+          length);
     }
 
     return out;
@@ -161,7 +195,6 @@ class Leco_string {
     return;
   }
 
-
   bool pre_Bsearch(int left, int right, int* index, std::string& key,
                    bool* skip_linear_scan, int string_len,
                    int search_len) {  // check which block the key belongs to
@@ -194,8 +227,6 @@ class Leco_string {
     }
     return true;
   }
-
-
 
   void setBlockSize(int block_size_, int block_num) {
     this->block_size = block_size_;
@@ -231,7 +262,6 @@ class Leco_string {
     }
   }
 
-
  private:
   std::string firstkey_each_block;
   std::vector<uint8_t*> block_start_vec;
@@ -241,13 +271,16 @@ class Leco_string {
   uint64_t totalsize_with_padding;
   std::vector<uint8_t> padding_length;
   std::vector<uint8_t> string_wo_padding_length;
+  std::vector<uint8_t> prefix_length;
+  std::vector<std::string> common_prefix;
   std::vector<std::string> padding_max;
   std::vector<std::string> padding_min;
   uint8_t max_padding_length;
 };
 
 template <typename T>
-inline uint8_t randomdecodeArray8_string(const char* in, int idx, T* result, int length) {
+inline uint8_t randomdecodeArray8_string(const char* in, int idx, T* result,
+                                         int length) {
   const uint8_t* tmpin = reinterpret_cast<const uint8_t*>(in);
   uint32_t maxbits;
   memcpy(&maxbits, tmpin, sizeof(uint32_t));
@@ -266,16 +299,16 @@ inline uint8_t randomdecodeArray8_string(const char* in, int idx, T* result, int
   tmpin += sizeof(T);
 
   uint8_t ori_length = 0;
-  read_bit_fix_string<T>(tmpin, maxbits, idx, theta1, theta0, result, &ori_length);
+  read_bit_fix_string<T>(tmpin, maxbits, idx, theta1, theta0, result,
+                         &ori_length);
 
   int shift = (block_pad_length - ori_length);
   *result = *result >> (uint8_t)(8 * shift);
-  *result = *result<<(uint8_t)(8 * shift);
+  *result = *result << (uint8_t)(8 * shift);
   int tmp_length = block_pad_length - length;
-  if(tmp_length>0) {
+  if (tmp_length > 0) {
     *result = *result >> (uint8_t)(8 * tmp_length);
-  }
-  else{
+  } else {
     *result = *result << (uint8_t)(8 * (-tmp_length));
   }
   //*result = *result >> (uint8_t)(8 * std::max(block_pad_length - length, 0));
@@ -313,7 +346,7 @@ class Leco_integral {
         max_error = abs(tmp);
       }
     }
-    //std::cout<<"delta[1] "<<delta[1]<<std::endl;
+    // std::cout<<"delta[1] "<<delta[1]<<std::endl;
     int tmp_bit = bits_T<uint64_t>(max_error) + 1;
     out[0] = (uint8_t)tmp_bit;
     out++;
