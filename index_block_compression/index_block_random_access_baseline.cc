@@ -183,6 +183,9 @@ void randomaccess(std::string key_file, std::string seek_key_path, std::string o
   for (size_t i = 0; i < seek_keys.size(); ++i) {
     seek_keys[i].append("00000000");
   }
+  for(int i=0;i<(int)keys.size();i++){
+    keys[i].append("00000000");
+  }
 
   int seek_num = seek_keys.size();
   Random rnd(301);
@@ -202,8 +205,8 @@ void randomaccess(std::string key_file, std::string seek_key_path, std::string o
 
 
     v.handle.offset();
-    assert(v.handle.offset() == block_handles[index].offset());
-    assert(v.handle.size() == block_handles[index].size());
+    // assert(v.handle.offset() == block_handles[index].offset());
+    // assert(v.handle.size() == block_handles[index].size());
 
 
   }

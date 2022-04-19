@@ -8,81 +8,64 @@
 #include "leco_uint256.h"
 #include "leco_utils.h"
 
+
 #define INF 0x7f7fffff
 // Leco string compression alg.
 namespace ROCKSDB_NAMESPACE {
+inline int extract_common_prefix(std::vector<std::string>& string_vec, int start_ind,
+                          int block_length, int& common_prefix_length, std::string& common_prefix) {
+  // compare the first and last string in each block, to extract common prefix
+  std::string first_str = string_vec[start_ind];
+  std::string last_str = string_vec[start_ind + block_length - 1];
+  int compare_length = std::min(first_str.size(), last_str.size());
+  common_prefix_length = 0;
+  for (int j = 0; j < compare_length; j++) {
+    if (first_str[j] != last_str[j]) {
+      common_prefix_length = j;
+      break;
+    }
+  }
+  common_prefix = first_str.substr(0, common_prefix_length);
+
+  int max_padding_length = 0;
+  for (int i = start_ind; i < start_ind + block_length; i++) {
+    string_vec[i] = string_vec[i].substr(
+        common_prefix_length, string_vec[i].size() - common_prefix_length);
+    max_padding_length = std::max(max_padding_length, (int)string_vec[i].size());
+  }
+  return max_padding_length;  // block max key length(remain)
+}
+
+inline void Padd_one_string(std::string& s, char x, int padding_length) {
+  s.append(padding_length - s.size(), x);
+}
+
 template <typename T>
 class Leco_string {
  public:
-  void Padd_one_string(std::string& s, char x) {
-    s.append(max_padding_length - s.size(), x);
-  }
-  void Padding_string(std::vector<std::string>& string_vec, int N, char x) {
+  void Padding_string(std::vector<std::string>& string_vec, int start_ind,
+                      int block_length, char x, int padding_length) {
     totalsize_without_padding = 0;
     totalsize_with_padding = 0;
-    max_padding_length = 0;
-    for (int i = 0; i < blocks; i++) {
-      int block_length = block_size;
-      if (i == blocks - 1) {
-        block_length = N - (blocks - 1) * block_size;
-      }
-      uint8_t max_length = 0;
-
-      for (int j = 0; j < block_length; j++) {
-        totalsize_without_padding += string_vec[i * block_size + j].size();
-        if (string_vec[i * block_size + j].size() > max_length) {
-          max_length = string_vec[i * block_size + j].size();
-        }
-      }
-      if (max_padding_length < max_length) {
-        max_padding_length = max_length;
-      }
-      padding_length.emplace_back(max_length);
-      totalsize_with_padding += max_length * block_length;
-      for (int j = 0; j < block_length; j++) {
-        int temp_len = string_vec[i * block_size + j].size();
-        string_wo_padding_length.emplace_back((uint8_t)temp_len);
-        std::string tmp_str_max = string_vec[i * block_size + j];
-        std::string tmp_str_min = tmp_str_max;
-        padding_max.emplace_back(tmp_str_max.append(
-            max_length - temp_len, std::numeric_limits<char>::max()));
-        padding_min.emplace_back(tmp_str_min.append(max_length - temp_len, 1));
-        string_vec[i * block_size + j].append(max_length - temp_len, x);
-      }
+    for (int j = 0; j < block_length; j++) {
+      totalsize_without_padding += string_vec[start_ind + j].size();
     }
-  }
-
-  void extract_common_prefix(std::vector<std::string>& string_vec) {
-    for (int i = 0; i < blocks; i++) {
-      int block_length = block_size;
-      if (i == blocks - 1) {
-        block_length = N - (blocks - 1) * block_size;
-      }
-      // compare the first and last string in each block, to extract common prefix
-      std::string first_str = string_vec[i * block_size];
-      std::string last_str = string_vec[i * block_size + block_length - 1];
-      int compare_length = std::min(first_str.size(), last_str.size());
-      int common_prefix_length = 0;
-      for(int j = 0; j < compare_length; j++) {
-        if (first_str[j] != last_str[j]) {
-          common_prefix_length = j;
-          break;
-        }
-      }
-      common_prefix.emplace_back(first_str.substr(0, common_prefix_length));
-      prefix_length.emplace_back(common_prefix_length);
-      for(int j = 0; j < block_length; j++) {
-        string_vec[i * block_size + j] = string_vec[i * block_size + j].substr(
-            common_prefix_length, string_vec[i * block_size + j].size());
-      }
-      
-
+    block_padding_length = padding_length;
+    totalsize_with_padding += padding_length * block_length;
+    for (int j = 0; j < block_length; j++) {
+      int temp_len = string_vec[start_ind + j].size();
+      string_wo_padding_length.emplace_back((uint8_t)temp_len);
+      std::string tmp_str_max = string_vec[start_ind + j];
+      std::string tmp_str_min = tmp_str_max;
+      padding_max.emplace_back(tmp_str_max.append(padding_length - temp_len, std::numeric_limits<char>::max()));
+      padding_min.emplace_back(tmp_str_min.append(padding_length - temp_len, 1));
+      string_vec[start_ind + j].append(padding_length - temp_len, x);
     }
   }
 
   uint8_t* encodeArray8_string(std::vector<std::string>& string_vec,
                                int start_idx, const size_t length, uint8_t* res,
-                               size_t nvalue) {
+                               std::string& common_prefix, int common_prefix_length, uint8_t encoding_type) {
     uint8_t* out = res;
     std::vector<T> ascii_vec;
     std::vector<T> ascii_vec_min;
@@ -94,9 +77,9 @@ class Leco_string {
     std::vector<int> index;
     for (size_t i = 0; i < length; i++) {
       ascii_vec.emplace_back(convertToASCII<T>(string_vec[i + start_idx]));
-      ascii_vec_min.emplace_back(convertToASCII<T>(padding_min[i + start_idx]));
-      ascii_vec_max.emplace_back(convertToASCII<T>(padding_max[i + start_idx]));
       long_int_vec.emplace_back(convertToLongInt(string_vec[i + start_idx]));
+      ascii_vec_min.emplace_back(convertToASCII<T>(padding_min[i]));
+      ascii_vec_max.emplace_back(convertToASCII<T>(padding_max[i]));
       index.emplace_back(i);
     }
 
@@ -146,12 +129,21 @@ class Leco_string {
 
     uint32_t max_bit = 0;
     if (max_delta) {
-      max_bit = bits_T(max_delta) + 1;
+      max_bit = bits_T<T>(max_delta) + 1;
     }
+    // std::cout<<"delta length "<<max_bit<<std::endl;
+
+    memcpy(out, &encoding_type, sizeof(uint8_t));
+    out += sizeof(uint8_t);
+    memcpy(out, &common_prefix_length, sizeof(uint32_t));
+    out += sizeof(uint32_t);
+    memcpy(out, &common_prefix, common_prefix_length);
+    out += common_prefix_length;
+
     // std::cout<< "max_bit: " << max_bit << std::endl;
     memcpy(out, &max_bit, sizeof(uint32_t));
     out += sizeof(uint32_t);
-    memcpy(out, &padding_length[nvalue], sizeof(uint8_t));
+    memcpy(out, &block_padding_length, sizeof(uint8_t));
     out += sizeof(uint8_t);
     memcpy(out, &theta0, sizeof(T));
     out += sizeof(T);
@@ -160,7 +152,7 @@ class Leco_string {
     if (max_bit) {
       out = write_delta_string(
           delta.data(), signvec,
-          string_wo_padding_length.data() + block_size * nvalue, out, max_bit,
+          string_wo_padding_length.data(), out, max_bit,
           length);
     }
 
@@ -195,60 +187,13 @@ class Leco_string {
     return;
   }
 
-  bool pre_Bsearch(int left, int right, int* index, std::string& key,
-                   bool* skip_linear_scan, int string_len,
-                   int search_len) {  // check which block the key belongs to
-    while (left != right) {
-      // The `mid` is computed by rounding up so it lands in (`left`, `right`].
-      int64_t mid = left + (right - left + 1) / 2;
-      std::string tmp_key =
-          firstkey_each_block.substr(string_len * mid, search_len);
-      if (tmp_key < key) {
-        // Key at "mid" is smaller than "target". Therefore all
-        // blocks before "mid" are uninteresting.
-        left = mid;
-      } else if (tmp_key > key) {
-        // Key at "mid" is >= "target". Therefore all blocks at or
-        // after "mid" are uninteresting.
-        right = mid - 1;
-      } else {
-        *skip_linear_scan = true;
-        left = right = mid;
-      }
-    }
 
-    if (left == -1) {
-      // All keys in the block were strictly greater than `target`. So the very
-      // first key in the block is the final seek result.
-      *skip_linear_scan = true;
-      *index = 0;
-    } else {
-      *index = static_cast<uint32_t>(left);
-    }
-    return true;
-  }
-
-  void setBlockSize(int block_size_, int block_num) {
-    this->block_size = block_size_;
-    this->blocks = block_num;
-    return;
-  }
-
-  void push_back_block(uint8_t* block) {
-    block_start_vec.emplace_back(block);
-    return;
-  }
-
-  void push_back_firstkey(std::string& firstkey) {
-    firstkey_each_block.append(firstkey);
-    return;
-  }
 
   void get_uncompressed_size(uint64_t& withpad, uint64_t& withoutpad) {
-    withpad = totalsize_with_padding;
-    withoutpad = totalsize_without_padding;
+    withpad += totalsize_with_padding;
+    withoutpad += totalsize_without_padding;
   }
-  uint8_t get_max_padding_length() { return max_padding_length; }
+  uint8_t get_max_padding_length() { return block_padding_length; }
 
   void write_string_wo_padding_len(std::string& buf) {
     for (char item : string_wo_padding_length) {
@@ -257,30 +202,21 @@ class Leco_string {
   }
 
   void write_block_padding_len(std::string& buf) {
-    for (char item : padding_length) {
-      buf.append(reinterpret_cast<const char*>(&item), sizeof(char));
-    }
+    buf.append(reinterpret_cast<const char*>(&block_padding_length), sizeof(char));
   }
 
  private:
-  std::string firstkey_each_block;
-  std::vector<uint8_t*> block_start_vec;
-  int block_size;
-  int blocks;
   uint64_t totalsize_without_padding;
   uint64_t totalsize_with_padding;
-  std::vector<uint8_t> padding_length;
   std::vector<uint8_t> string_wo_padding_length;
-  std::vector<uint8_t> prefix_length;
-  std::vector<std::string> common_prefix;
   std::vector<std::string> padding_max;
   std::vector<std::string> padding_min;
-  uint8_t max_padding_length;
+  uint8_t block_padding_length;
 };
 
 template <typename T>
 inline uint8_t randomdecodeArray8_string(const char* in, int idx, T* result,
-                                         int length) {
+                                         int length, int common_prefix_length) {
   const uint8_t* tmpin = reinterpret_cast<const uint8_t*>(in);
   uint32_t maxbits;
   memcpy(&maxbits, tmpin, sizeof(uint32_t));

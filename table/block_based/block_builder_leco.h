@@ -47,7 +47,10 @@ class BlockBuilder_leco {
   // block contents.  The returned slice will remain valid for the
   // lifetime of this builder or until Reset() is called.
   uint32_t EncodeValue(std::string& buffer,std::vector<uint64_t> & data);
-  template <typename T, typename S>
+  template <typename T>
+  void EncodingOneDataSegment(std::vector<std::string>& data_vec_tmp, int start_ind, int block_length, int max_padding_length, char padding_char, std::vector<std::string>& descriptor_of_each_block, std::vector<uint32_t>& offset_of_each_block, uint32_t& start_byte, std::string& common_prefix, int common_prefix_length, uint8_t encoding_type);
+
+  template <typename S>
   uint32_t EncodeVal(std::string& buffer, std::vector<S>& data_vec, bool with_first_key);
   
   Slice Finish();

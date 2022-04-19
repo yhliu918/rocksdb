@@ -594,7 +594,8 @@ int main(int argc, const char* argv[]) {
 
   //const std::string kKeyPath = "/home/lyh/string_data/email_list/padding_a_prefix.txt";
   //"/home/zxy/rocksdb/index_block_compression/poisson_timestamps.csv";
-  const std::string kKeyPath = "/home/lyh/rocksdb/dump_data/wholestring_min_16_max_24.txt";
+  const std::string kKeyPath = "/home/lyh/string_data/email_list/mail_server_host_reverse_min_10_max_26.txt";
+  // const std::string kKeyPath = "/home/lyh/rocksdb/dump_data/wholestring_min_16_max_24.txt";
   // const std::string kKeyPath = "/home/lyh/rocksdb/dump_data/wholestring_min_12_max_24_no_repeat.txt";
   // const std::string kKeyPath = "/home/lyh/Learn-to-Compress/scripts/poisson_timestamps_20000.csv";
   const uint64_t kValueSize = 1000;
@@ -602,7 +603,7 @@ int main(int argc, const char* argv[]) {
   const uint64_t kQueryCount = 50000;
 
   // 2GB config
-  const uint64_t kKeyCount = 2000000;
+  const uint64_t kKeyCount = 20000000;
   const uint64_t kWarmupSampleGap = 100;
 
   // 100GB config

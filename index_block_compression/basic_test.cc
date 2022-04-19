@@ -28,44 +28,34 @@
 using namespace ROCKSDB_NAMESPACE;
 
 int main() {
-  rocksdb::DB* db;
-  rocksdb::Options options;
-  rocksdb::Status status = rocksdb::DB::Open(
-      options, "/home/lyh/rocksdb/index_block_compression/new_db_dir", &db);
+  std::string seek_key_path="/home/lyh/string_data/email_list/mail_server_host_reverse_min_10_max_26.txt";
+  std::ifstream inFile(seek_key_path, std::ios::in);
+  std::string out_path="/home/lyh/rocksdb/dump_data/mail_server_host_reverse_min_10_max_26_datablock.txt";
+  std::ofstream outFile(out_path, std::ios::out);
 
-  if (!status.ok()) {
-    std::cout << "creating new DB\n";
-    options.create_if_missing = true;
-    status = rocksdb::DB::Open(
-        options, "/home/lyh/rocksdb/index_block_compression/new_db_dir",
-        &db);
-    assert(status.ok());
-
-    rocksdb::Slice value = "123";
-    for (int i = 0; i < 10000; i++) {
-      std::string str = "test" + std::to_string(i);
-      rocksdb::Slice key = str;
-      status = db->Put(rocksdb::WriteOptions(), key, value);
-      if (!status.ok()) {
-        std::cout << status.ToString().c_str() << "\n";
-        assert(false);
-      }
-    }
+  std::vector<std::string> keys;
+  if (!inFile) {
+    std::cout << "error opening source file." << std::endl;
+    return 0 ;
   }
-
-  std::string value;
-  for (int i = 0; i < 10000; i++) {
-    std::string str = "test" + std::to_string(i);
-    rocksdb::Slice key = str;
-    status = db->Get(rocksdb::ReadOptions(), key, &value);
-    if (!status.ok()) {
-      std::cout << "count: " << i << std::endl
-                << status.ToString().c_str() << "\n";
-      assert(false);
+  while (1) {
+    std::string next;
+    inFile >> next;
+    if (inFile.eof()) {
+      break;
     }
+    keys.emplace_back(next);
   }
-
-  rocksdb::Status s = db->Close();
-  assert(s.ok());
+  inFile.close();
+  for(auto key:keys){
+    // rocksdb::Slice s_key(reinterpret_cast<const char*>(&key_), sizeof(key_));
+    // std::string hex_out = s_key.ToString(true);
+    if(key.compare("com.aol@alhugh")>=0 && key.compare("com.aol@anpe")<=0){
+      outFile<<key<<std::endl;
+    }
+    
+  }
+  outFile.close();
+  
   return 0;
 }

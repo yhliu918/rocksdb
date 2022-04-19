@@ -170,6 +170,8 @@ std::vector<std::string> seek_keys;
     // append a 8B internal key, because when using Seek()
     // we need to cut off 8B internal key
     seek_keys[i].append("00000000"); 
+  }
+  for(int i=0;i<(int)keys.size();i++){
     keys[i].append("00000000");
   }
   BlockContents contents;
@@ -196,6 +198,7 @@ std::vector<std::string> seek_keys;
     // iter->SeekToFirst();
 
     int index = rnd.Uniform(seek_num);
+    // int index = i;
     
     // int index = 587;
     // std::string seek_key = "00000000275AF403";
@@ -221,9 +224,10 @@ std::vector<std::string> seek_keys;
     // assert(v.handle.size() == block_handles[std::min(index/4,N-1)].size());
     // assert(v.handle.offset() == block_handles[index].offset());
     int searched_index = v.handle.size();
+    // std::cout<<i<<" target key "<<key<<" lower bound "<<keys[searched_index]<<" upper bound "<<keys[searched_index+1]<<std::endl;
     assert((keys[searched_index]).compare(key)<=0);
     assert(key.compare(keys[std::min(searched_index+1,N-1)])<=0);
-    // std::cout<<"target key "<<key<<" lower bound "<<keys[searched_index]<<" upper bound "<<keys[searched_index+1]<<std::endl;
+    
 
     // assert(iter->key().ToString() == keys[index]);
 

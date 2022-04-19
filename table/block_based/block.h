@@ -502,7 +502,6 @@ class BlockIter : public InternalIteratorBase<TValue> {
 
   void FindKeyAfterBinarySeek(const Slice& target, uint32_t index,
                               bool is_index_key_result,bool use_leco = false);
-  template <typename T>
   bool BinarySeek_leco(Slice& target, uint32_t* index);
 };
 
