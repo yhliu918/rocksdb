@@ -93,9 +93,11 @@ uint32_t BlockBuilder_leco::EncodeValue(std::string& buffer,
 
     int descriptor_length = res - descriptor;
     descriptor = (uint8_t*)realloc(descriptor, descriptor_length);
+
     std::string descriptor_str(reinterpret_cast<const char*>(descriptor),
                                descriptor_length);
     string_key_vec.emplace_back(descriptor_str);
+    free(descriptor);
 
     start_byte += descriptor_length;
     if (i == block_num - 1) {
@@ -211,7 +213,7 @@ uint32_t BlockBuilder_leco::EncodeVal(std::string& buffer,
 }*/
 
 template <typename T>
-void BlockBuilder_leco::EncodingOneDataSegment(std::vector<std::string>& data_vec_tmp, int start_ind, int block_length, int padding_length, char padding_char, std::vector<std::string>& descriptor_of_each_block, std::vector<uint32_t>& offset_of_each_block, uint32_t& start_byte,std::string& common_prefix, int common_prefix_length, uint8_t encoding_type) {
+void BlockBuilder_leco::EncodingOneDataSegment(std::vector<std::string>& data_vec_tmp, int start_ind, int block_length, int padding_length, char padding_char, std::vector<std::string>& descriptor_of_each_block, std::vector<uint32_t>& offset_of_each_block, uint32_t& start_byte,std::string* common_prefix, int common_prefix_length, uint8_t encoding_type, int interval) {
   Leco_string<T> codec;
   if (padding_enable) {
     codec.Padding_string(data_vec_tmp, start_ind, block_length,
@@ -226,12 +228,13 @@ void BlockBuilder_leco::EncodingOneDataSegment(std::vector<std::string>& data_ve
   uint8_t* res = descriptor;
 
   res = codec.encodeArray8_string(data_vec_tmp, start_ind, block_length,
-                                  descriptor, common_prefix, common_prefix_length, encoding_type);
+                                  descriptor, common_prefix, common_prefix_length, encoding_type, interval);
   int descriptor_length = res - descriptor;
   descriptor = (uint8_t*)realloc(descriptor, descriptor_length);
   std::string descriptor_str(reinterpret_cast<const char*>(descriptor),
                              descriptor_length);
   descriptor_of_each_block.emplace_back(descriptor_str);
+  free(descriptor);
   offset_of_each_block.emplace_back(start_byte);
   start_byte += descriptor_length;
 }
@@ -248,6 +251,7 @@ uint32_t BlockBuilder_leco::EncodeVal(std::string& buffer,
   char padding_char = 2;
   std::vector<S> data_vec_tmp(data_vec);
 
+  int interval = block_size_ / key_num_per_block_;
   if (with_first_key) {  // when encoding value (offset, size), we usually do
                          // not turn on this option
     uint8_t total_padding_length = 0;
@@ -257,7 +261,7 @@ uint32_t BlockBuilder_leco::EncodeVal(std::string& buffer,
     }
     buffer.append(reinterpret_cast<const char*>(&total_padding_length),
                   sizeof(total_padding_length));
-    int interval = block_size_ / key_num_per_block_;
+    
     // we only store key_num_per_block_ in each block
     // and left alone the last block (if it's not full)
     int start = 0;
@@ -277,7 +281,7 @@ uint32_t BlockBuilder_leco::EncodeVal(std::string& buffer,
       // std::cout<<buffer.size()<<std::endl;
       start += interval;
     }
-    std::cout<<"counter "<<counter<<" max_padding_length "<<(unsigned)total_padding_length<<std::endl;
+    // std::cout<<"counter "<<counter<<" max_padding_length "<<(unsigned)total_padding_length<<std::endl;
   }
 
   std::vector<uint32_t> offset_of_each_block;
@@ -295,25 +299,25 @@ uint32_t BlockBuilder_leco::EncodeVal(std::string& buffer,
     int padding_length = extract_common_prefix(
         data_vec_tmp, i * block_size_, block_length, common_prefix_length, common_prefix);
     // std::cout<<"using common prefix: "<<common_prefix<<" prefix length "<<common_prefix_length<<" padding length: "<<padding_length<<std::endl;
-    if (padding_length <= 8) {  // the rest can be represented by a uint64_t
+    if (padding_length < 7) {  // the rest can be represented by a uint64_t
       EncodingOneDataSegment<uint64_t>(data_vec_tmp, i * block_size_, block_length,
                              padding_length, padding_char,
                              descriptor_of_each_block, offset_of_each_block,
-                             start_byte, common_prefix,common_prefix_length, 0);
+                             start_byte, &common_prefix,common_prefix_length, 0, interval);
 
-    } else if (padding_length <=
-               16) {  // the rest can be represented by a uint128_t
+    } else if (padding_length <
+               15) {  // the rest can be represented by a uint128_t
       EncodingOneDataSegment<uint128_t>(data_vec_tmp, i * block_size_, block_length,
                              padding_length, padding_char,
                              descriptor_of_each_block, offset_of_each_block,
-                             start_byte, common_prefix,common_prefix_length, 1);
+                             start_byte, &common_prefix,common_prefix_length, 1, interval);
 
-    } else if (padding_length <=
-               32) {  // the rest can be represented by a uint256_t
+    } else if (padding_length <
+               31) {  // the rest can be represented by a uint256_t
       EncodingOneDataSegment<uint256_t>(data_vec_tmp, i * block_size_, block_length,
                              padding_length, padding_char,
                              descriptor_of_each_block, offset_of_each_block,
-                             start_byte, common_prefix,common_prefix_length,2);
+                             start_byte, &common_prefix,common_prefix_length,2, interval);
     } else {
       throw("max_padding_length is too large, fall back to mpz");
       // EncodingOneDataSegment<mpz_t>(data_vec_tmp, i * block_size_, block_length,

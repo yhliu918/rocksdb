@@ -133,6 +133,7 @@ void randomaccess(std::string key_file, std::string offset_file,
   std::ofstream sizefile ("/home/lyh/rocksdb/dump_data/wholestring_min_16_max_24_index_size.txt");
   std::ofstream block_index_file ("/home/lyh/rocksdb/dump_data/wholestring_min_16_max_24_index_block_index.txt");
 
+
   GenerateSeparators(&separators, keys, &first_keys, &block_index);
   int offset = 0;
   for(auto item: separators){

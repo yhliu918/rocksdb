@@ -334,6 +334,10 @@ inline uint8_t *write_delta(long long *in, uint8_t *out, uint8_t l, int numbers)
 
   while (out <= last) {
     while (occupy < 8) {
+      if(tmpin >= in + numbers) {
+        occupy = 8;
+        break;
+      }
       bool sign = 1;
       long long tmpnum = tmpin[0];
       if (tmpnum <= 0) {
@@ -345,7 +349,7 @@ inline uint8_t *write_delta(long long *in, uint8_t *out, uint8_t l, int numbers)
       code += (value1 << occupy);
       occupy += l;
 
-      tmpin++;
+      tmpin+=1;
 
     }  // end while
     while (occupy >= 8) {

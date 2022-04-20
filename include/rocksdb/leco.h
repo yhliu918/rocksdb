@@ -65,7 +65,7 @@ class Leco_string {
 
   uint8_t* encodeArray8_string(std::vector<std::string>& string_vec,
                                int start_idx, const size_t length, uint8_t* res,
-                               std::string& common_prefix, int common_prefix_length, uint8_t encoding_type) {
+                               std::string* common_prefix, int common_prefix_length, uint8_t encoding_type, int interval) {
     uint8_t* out = res;
     std::vector<T> ascii_vec;
     std::vector<T> ascii_vec_min;
@@ -105,8 +105,15 @@ class Leco_string {
     std::vector<T> delta;
     std::vector<bool> signvec;
     T max_delta = 0;
+    int counter = 0;
+    std::vector<uint8_t> string_wo_padding_length_vec;
     for (uint32_t i = 0; i < length; i++) {
+      // when i is several times of interval, it is stored by first key (uncompressed format)
+      // if(i % interval ==0){
+      //   continue;
+      // }
       T tmp_val;
+      // string_wo_padding_length_vec.emplace_back(string_wo_padding_length[i]);
 
       T pred = theta0 + theta1 * i;
       if (pred > ascii_vec_max[i]) {
@@ -121,6 +128,7 @@ class Leco_string {
       }
 
       delta.emplace_back(tmp_val);
+      counter ++;
 
       if (tmp_val > max_delta) {
         max_delta = tmp_val;
@@ -137,7 +145,8 @@ class Leco_string {
     out += sizeof(uint8_t);
     memcpy(out, &common_prefix_length, sizeof(uint32_t));
     out += sizeof(uint32_t);
-    memcpy(out, &common_prefix, common_prefix_length);
+    memcpy(out, common_prefix->c_str(), common_prefix_length);
+    // std::cout<<"common prefix "<<*common_prefix<<std::endl;
     out += common_prefix_length;
 
     // std::cout<< "max_bit: " << max_bit << std::endl;
@@ -218,19 +227,19 @@ template <typename T>
 inline uint8_t randomdecodeArray8_string(const char* in, int idx, T* result,
                                          int length, int common_prefix_length) {
   const uint8_t* tmpin = reinterpret_cast<const uint8_t*>(in);
-  uint32_t maxbits;
+  uint32_t maxbits=0;
   memcpy(&maxbits, tmpin, sizeof(uint32_t));
   tmpin += sizeof(uint32_t);
   // std::cout<<"max bit "<<maxbits<<std::endl;
-  uint8_t block_pad_length;
+  uint8_t block_pad_length=0;
   memcpy(&block_pad_length, tmpin, sizeof(uint8_t));
   tmpin += sizeof(uint8_t);
 
-  T theta0;
+  T theta0=0;
   memcpy(&theta0, tmpin, sizeof(T));
   tmpin += sizeof(T);
 
-  T theta1;
+  T theta1=0;
   memcpy(&theta1, tmpin, sizeof(T));
   tmpin += sizeof(T);
 
@@ -244,7 +253,7 @@ inline uint8_t randomdecodeArray8_string(const char* in, int idx, T* result,
   int tmp_length = block_pad_length - length;
   if (tmp_length > 0) {
     *result = *result >> (uint8_t)(8 * tmp_length);
-  } else {
+  } else if(tmp_length<0) {
     *result = *result << (uint8_t)(8 * (-tmp_length));
   }
   //*result = *result >> (uint8_t)(8 * std::max(block_pad_length - length, 0));
@@ -271,8 +280,8 @@ class Leco_integral {
     // mylr.caltheta_LOO(indexes,keys,length);
     mylr.caltheta(indexes, keys, length);
 
-    free(indexes);
-    free(keys);
+    delete[] indexes;
+    delete[] keys;
     long long max_error = 0;
     for (int i = 0; i < (long long)length; i++) {
       long long tmp =
@@ -296,7 +305,7 @@ class Leco_integral {
 
     out = write_delta(delta, out, tmp_bit, length);
 
-    free(delta);
+    delete[]delta;
 
     return out;
   }

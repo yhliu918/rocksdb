@@ -192,13 +192,13 @@ std::vector<std::string> seek_keys;
   Random rnd(301);
   double start = clock();
 
-  int seek_count = seek_num * 100;
+  int seek_count = seek_num;
   for (int i = 0; i < seek_count; i++) {
     // find a random key in the lookaside array
     // iter->SeekToFirst();
 
-    int index = rnd.Uniform(seek_num);
-    // int index = i;
+    // int index = rnd.Uniform(seek_num);
+    int index = i;
     
     // int index = 587;
     // std::string seek_key = "00000000275AF403";
@@ -206,11 +206,13 @@ std::vector<std::string> seek_keys;
     // Slice k(seek_key);
     std::string key = seek_keys[index];
     Slice k(key);
-    //std::cout<< "index "<< index<<" key "<< k.ToString()<<std::endl;
+    // std::cout<< "index "<< index<<" key "<< k.ToString()<<std::endl;
     // std::cout<<"offset "<<block_handles[index].offset()<<" size "<<block_handles[index].size()<<std::endl;
 
     //  search in block for this key
-
+    // if(index == 5122){
+    //   std::cout<<"hello"<<std::endl;
+    // }
     iter->Seek(k);
     IndexValue v = iter->value(); // first is offset, second is searched index,
     // need to verify k>=seek_keys[index] && k<=seek_keys[index+1]
@@ -224,9 +226,18 @@ std::vector<std::string> seek_keys;
     // assert(v.handle.size() == block_handles[std::min(index/4,N-1)].size());
     // assert(v.handle.offset() == block_handles[index].offset());
     int searched_index = v.handle.size();
-    // std::cout<<i<<" target key "<<key<<" lower bound "<<keys[searched_index]<<" upper bound "<<keys[searched_index+1]<<std::endl;
-    assert((keys[searched_index]).compare(key)<=0);
-    assert(key.compare(keys[std::min(searched_index+1,N-1)])<=0);
+    if(searched_index==0 ){
+      int cmphigher = memcmp(key.c_str(), keys[0].c_str(), key.size());
+      if(cmphigher<=0){
+        continue;
+      }
+      
+      }
+    // // std::cout<<i<<" target key "<<key<<" lower bound "<<keys[searched_index-1]<<" upper bound "<<keys[searched_index]<<std::endl;
+    int cmplower = memcmp(key.c_str(), keys[searched_index-1].c_str(), std::min(key.size(),keys[searched_index-1].size())-8);
+    int cmphigher = memcmp(key.c_str(), keys[std::min(searched_index,N-1)].c_str(), std::min(key.size(),keys[std::min(searched_index,N-1)].size())-8);
+    assert( cmplower >=0 );
+    assert(cmphigher<=0);
     
 
     // assert(iter->key().ToString() == keys[index]);

@@ -900,7 +900,7 @@ bool BlockIter<TValue>::BinarySeek_leco(Slice& target, uint32_t* index) {
     block_number++;
   }
   int data_offset = sizeof(uint32_t) * 4;
-  uint8_t max_padding_length;
+  uint8_t max_padding_length = 0;
 
   int interval = (block_size_ / key_num_per_block_);
   int total_firstkey_num = N / interval;
@@ -928,7 +928,8 @@ bool BlockIter<TValue>::BinarySeek_leco(Slice& target, uint32_t* index) {
   if (!skip_linear) {
     int left = index_search * interval;
     int block_left = left / block_size_;
-    int right = std::min(left + interval, (block_left + 1) * block_size_ - 1);
+    // int right = std::min(left + interval, (block_left + 1) * block_size_ - 1);
+    int right = left + interval - 1;
     if (index_search == total_firstkey_num - 1) {
       right = N;
     }
@@ -938,13 +939,38 @@ bool BlockIter<TValue>::BinarySeek_leco(Slice& target, uint32_t* index) {
         data_ + data_offset + block_number * 4 + start_byte)[0];
     int common_prefix_length = reinterpret_cast<const int*>(
         data_ + data_offset + block_number * 4 + start_byte + 1)[0];
+    
+
+    // Because some key in data block is not calculated when extracting prefix, so it maynot match the common prefix
+    // and only last segment can face with this situation.
+    // e.g.: common prefix: 'di.ten.'
+    //       key: 'di.tend@nejar'
+    //       last index key of this block: 'di.ten.tib@m'
+    // if we only use last several byte, eliminating common prefix to compare, 'tib@m'>'@nejar'
+    // however the ground truth is 'di.ten.tib@m' < 'di.tend@nejar'
+    // so we add a compare of common prefix hear to determine whether the key is in the last segment.
+
+    if(common_prefix_length && (right+1)%block_size_==0){
+      int search_len = std::min(common_prefix_length, (int)target.size());
+      int cmp = memcmp(target.data(), data_ + data_offset + block_number * 4 + start_byte + sizeof(uint8_t)+sizeof(uint32_t), search_len);
+      // std::string string_comp(data_ + data_offset +block_number * 4 + start_byte + sizeof(uint8_t)+sizeof(uint32_t), search_len); 
+      
+      // std::string str(target.data(), search_len);
+      // std::cout<< search_len<<" "<<string_comp<<" "<<str<<std::endl;
+      // cmp only can be >=0
+      if(cmp > 0){
+        *index = static_cast<uint32_t>(right)+1;
+        return true;
+      }
+    }
+
     // switch encoding_type to determine T
-    // std::cout<<"encoding_type: "<<(unsigned)encoding_type<<std::endl;
     switch (encoding_type) {
       case 0:{
         uint64_t record = 0;
+        int compare_target_size = std::min(target.size() - common_prefix_length, sizeof(uint64_t));
         convertToASCII_char<uint64_t>(target.data() + common_prefix_length,
-                               target.size() - common_prefix_length, &record);
+                               compare_target_size, &record);
         // std::cout<< "left: " << left << " right: " << right << std::endl;
 
         while (left != right) {
@@ -952,12 +978,12 @@ bool BlockIter<TValue>::BinarySeek_leco(Slice& target, uint32_t* index) {
           // `right`].
           int mid = left + (right - left + 1) / 2;
           int mid_block = mid / block_size_;
-
+          // int find_index = (mid % block_size_)/interval *(interval -1)+ mid%interval - 1;
           uint64_t data_mid;
           uint8_t origin_string_length = randomdecodeArray8_string<uint64_t>(
               data_ + data_offset + block_number * 4 + start_byte + sizeof(uint8_t)+sizeof(uint32_t)+common_prefix_length,
               mid % block_size_, &data_mid,
-              target.size() - common_prefix_length, common_prefix_length);
+              compare_target_size, common_prefix_length);
           if (data_mid == record) {
             if (origin_string_length == target.size() - common_prefix_length) {
               left = right = mid;
@@ -981,8 +1007,10 @@ bool BlockIter<TValue>::BinarySeek_leco(Slice& target, uint32_t* index) {
         }
       case 1:{
         uint128_t record = 0;
+        int compare_target_size = std::min(target.size() - common_prefix_length, sizeof(uint128_t));
+        
         convertToASCII_char<uint128_t>(target.data() + common_prefix_length,
-                               target.size() - common_prefix_length, &record);
+                               compare_target_size, &record);
         // std::cout<< "left: " << left << " right: " << right << std::endl;
 
         while (left != right) {
@@ -990,12 +1018,12 @@ bool BlockIter<TValue>::BinarySeek_leco(Slice& target, uint32_t* index) {
           // `right`].
           int mid = left + (right - left + 1) / 2;
           int mid_block = mid / block_size_;
-
+          // int find_index = (mid % block_size_)/interval *(interval -1)+ mid%interval - 1;
           uint128_t data_mid;
           uint8_t origin_string_length = randomdecodeArray8_string<uint128_t>(
               data_ + data_offset + block_number * 4 + start_byte + sizeof(uint8_t)+sizeof(uint32_t)+common_prefix_length,
               mid % block_size_, &data_mid,
-              target.size() - common_prefix_length, common_prefix_length);
+              compare_target_size, common_prefix_length);
           if (data_mid == record) {
             if (origin_string_length == target.size() - common_prefix_length) {
               left = right = mid;
@@ -1019,8 +1047,9 @@ bool BlockIter<TValue>::BinarySeek_leco(Slice& target, uint32_t* index) {
       }
       case 2:{
         uint256_t record = 0;
+        int compare_target_size = std::min(target.size() - common_prefix_length, sizeof(uint256_t));
         convertToASCII_char<uint256_t>(target.data() + common_prefix_length,
-                               target.size() - common_prefix_length, &record);
+                               compare_target_size, &record);
         // std::cout<< "left: " << left << " right: " << right << std::endl;
 
         while (left != right) {
@@ -1028,19 +1057,19 @@ bool BlockIter<TValue>::BinarySeek_leco(Slice& target, uint32_t* index) {
           // `right`].
           int mid = left + (right - left + 1) / 2;
           int mid_block = mid / block_size_;
-
-          uint256_t data_mid;
+          // int find_index = (mid % block_size_)/interval *(interval -1)+ mid%interval - 1;
+          uint256_t data_mid=0;
           uint8_t origin_string_length = randomdecodeArray8_string<uint256_t>(
               data_ + data_offset + block_number * 4 + start_byte + sizeof(uint8_t)+sizeof(uint32_t)+common_prefix_length,
               mid % block_size_, &data_mid,
-              target.size() - common_prefix_length, common_prefix_length);
+              compare_target_size, common_prefix_length);
           if (data_mid == record) {
-            if (origin_string_length == target.size() - common_prefix_length) {
+            if (origin_string_length == (uint8_t)target.size() - (uint8_t)common_prefix_length) {
               left = right = mid;
               *index = static_cast<uint32_t>(left);
               return true;
             } else if (origin_string_length >
-                       target.size() - common_prefix_length) {
+                       (uint8_t)target.size() - (uint8_t)common_prefix_length) {
               right = mid - 1;
             } else {
               left = mid;
