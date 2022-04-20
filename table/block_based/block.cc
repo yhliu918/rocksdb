@@ -978,11 +978,11 @@ bool BlockIter<TValue>::BinarySeek_leco(Slice& target, uint32_t* index) {
           // `right`].
           int mid = left + (right - left + 1) / 2;
           int mid_block = mid / block_size_;
-          // int find_index = (mid % block_size_)/interval *(interval -1)+ mid%interval - 1;
+          int find_index = (mid % block_size_)/interval *(interval -1)+ mid%interval - 1;
           uint64_t data_mid;
           uint8_t origin_string_length = randomdecodeArray8_string<uint64_t>(
               data_ + data_offset + block_number * 4 + start_byte + sizeof(uint8_t)+sizeof(uint32_t)+common_prefix_length,
-              mid % block_size_, &data_mid,
+              find_index, mid % block_size_,&data_mid,
               compare_target_size, common_prefix_length);
           if (data_mid == record) {
             if (origin_string_length == target.size() - common_prefix_length) {
@@ -1018,11 +1018,11 @@ bool BlockIter<TValue>::BinarySeek_leco(Slice& target, uint32_t* index) {
           // `right`].
           int mid = left + (right - left + 1) / 2;
           int mid_block = mid / block_size_;
-          // int find_index = (mid % block_size_)/interval *(interval -1)+ mid%interval - 1;
+          int find_index = (mid % block_size_)/interval *(interval -1)+ mid%interval - 1;
           uint128_t data_mid;
           uint8_t origin_string_length = randomdecodeArray8_string<uint128_t>(
               data_ + data_offset + block_number * 4 + start_byte + sizeof(uint8_t)+sizeof(uint32_t)+common_prefix_length,
-              mid % block_size_, &data_mid,
+              find_index,mid % block_size_, &data_mid,
               compare_target_size, common_prefix_length);
           if (data_mid == record) {
             if (origin_string_length == target.size() - common_prefix_length) {
@@ -1057,11 +1057,11 @@ bool BlockIter<TValue>::BinarySeek_leco(Slice& target, uint32_t* index) {
           // `right`].
           int mid = left + (right - left + 1) / 2;
           int mid_block = mid / block_size_;
-          // int find_index = (mid % block_size_)/interval *(interval -1)+ mid%interval - 1;
+          int find_index = (mid % block_size_)/interval *(interval -1)+ mid%interval - 1;
           uint256_t data_mid=0;
           uint8_t origin_string_length = randomdecodeArray8_string<uint256_t>(
               data_ + data_offset + block_number * 4 + start_byte + sizeof(uint8_t)+sizeof(uint32_t)+common_prefix_length,
-              mid % block_size_, &data_mid,
+              find_index,mid % block_size_, &data_mid,
               compare_target_size, common_prefix_length);
           if (data_mid == record) {
             if (origin_string_length == (uint8_t)target.size() - (uint8_t)common_prefix_length) {

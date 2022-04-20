@@ -192,18 +192,19 @@ std::vector<std::string> seek_keys;
   Random rnd(301);
   double start = clock();
 
-  int seek_count = seek_num;
+  int seek_count = seek_num * 100;
   for (int i = 0; i < seek_count; i++) {
     // find a random key in the lookaside array
     // iter->SeekToFirst();
 
-    // int index = rnd.Uniform(seek_num);
-    int index = i;
+    int index = rnd.Uniform(seek_num);
+    // int index = i;
     
     // int index = 587;
     // std::string seek_key = "00000000275AF403";
     // seek_key = seek_key.append("00000000");
     // Slice k(seek_key);
+
     std::string key = seek_keys[index];
     Slice k(key);
     // std::cout<< "index "<< index<<" key "<< k.ToString()<<std::endl;
@@ -232,8 +233,8 @@ std::vector<std::string> seek_keys;
         continue;
       }
       
-      }
-    // // std::cout<<i<<" target key "<<key<<" lower bound "<<keys[searched_index-1]<<" upper bound "<<keys[searched_index]<<std::endl;
+    }
+    // std::cout<<i<<" target key "<<key<<" lower bound "<<keys[searched_index-1]<<" upper bound "<<keys[searched_index]<<std::endl;
     int cmplower = memcmp(key.c_str(), keys[searched_index-1].c_str(), std::min(key.size(),keys[searched_index-1].size())-8);
     int cmphigher = memcmp(key.c_str(), keys[std::min(searched_index,N-1)].c_str(), std::min(key.size(),keys[std::min(searched_index,N-1)].size())-8);
     assert( cmplower >=0 );

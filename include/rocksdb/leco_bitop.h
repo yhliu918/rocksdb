@@ -202,7 +202,7 @@ inline void read_all_fix_string(uint8_t *in, int start_byte, int start_index, in
 }
 
 template <typename T>
-void read_bit_fix_string(const uint8_t *in, uint32_t l, uint32_t to_find, T theta1, T theta0, T *result, uint8_t* ori_length)
+void read_bit_fix_string(const uint8_t *in, uint32_t l, uint32_t to_find,uint32_t index_origin, T theta1, T theta0, T *result, uint8_t* ori_length)
 {
   uint64_t find_bit = to_find * (l+8);
   uint64_t start_byte = find_bit / 8;
@@ -234,7 +234,7 @@ void read_bit_fix_string(const uint8_t *in, uint32_t l, uint32_t to_find, T thet
   *ori_length = (uint8_t)(decode >> (uint8_t)l); // TODO: maybe right shift?
   bool sign = (decode >> (uint8_t)(l - 1)) & 1;
   T value = (decode & (((T)1 << (uint8_t)(l - 1)) - 1));
-  T pred = theta0 + theta1 * to_find;
+  T pred = theta0 + theta1 * index_origin;
   if (sign)
   {
     *result = value + pred;

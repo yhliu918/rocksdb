@@ -109,11 +109,11 @@ class Leco_string {
     std::vector<uint8_t> string_wo_padding_length_vec;
     for (uint32_t i = 0; i < length; i++) {
       // when i is several times of interval, it is stored by first key (uncompressed format)
-      // if(i % interval ==0){
-      //   continue;
-      // }
+      if(i % interval ==0){
+        continue;
+      }
       T tmp_val;
-      // string_wo_padding_length_vec.emplace_back(string_wo_padding_length[i]);
+      string_wo_padding_length_vec.emplace_back(string_wo_padding_length[i]);
 
       T pred = theta0 + theta1 * i;
       if (pred > ascii_vec_max[i]) {
@@ -161,8 +161,8 @@ class Leco_string {
     if (max_bit) {
       out = write_delta_string(
           delta.data(), signvec,
-          string_wo_padding_length.data(), out, max_bit,
-          length);
+          string_wo_padding_length_vec.data(), out, max_bit,
+          counter);
     }
 
     return out;
@@ -224,7 +224,7 @@ class Leco_string {
 };
 
 template <typename T>
-inline uint8_t randomdecodeArray8_string(const char* in, int idx, T* result,
+inline uint8_t randomdecodeArray8_string(const char* in, int idx, int index_origin, T* result,
                                          int length, int common_prefix_length) {
   const uint8_t* tmpin = reinterpret_cast<const uint8_t*>(in);
   uint32_t maxbits=0;
@@ -244,7 +244,7 @@ inline uint8_t randomdecodeArray8_string(const char* in, int idx, T* result,
   tmpin += sizeof(T);
 
   uint8_t ori_length = 0;
-  read_bit_fix_string<T>(tmpin, maxbits, idx, theta1, theta0, result,
+  read_bit_fix_string<T>(tmpin, maxbits, idx,index_origin, theta1, theta0, result,
                          &ori_length);
 
   int shift = (block_pad_length - ori_length);
