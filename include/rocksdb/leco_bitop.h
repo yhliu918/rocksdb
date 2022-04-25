@@ -36,7 +36,7 @@ inline T convertToASCII(std::string& letter)
 
   for (auto x:letter)
   {
-    result += T(x) << (uint8_t)shift;
+    result += T((uint8_t)x) << (uint8_t)shift;
     shift -= 8;
   }
   return result;

@@ -129,8 +129,12 @@ inline void BlockFetcher::PrepareBufferForBlockFromFile() {
                                     memory_allocator_compressed_);
     used_buf_ = compressed_buf_.get();
   } else {
+    // std::cout<<"block_size_with_trailer_: "<<block_size_with_trailer_<<std::endl;
+    // std::cout<< "block_size_: "<<block_size_<<std::endl;
+
     heap_buf_ =
         AllocateBlock(block_size_with_trailer_, memory_allocator_);
+    
     used_buf_ = heap_buf_.get();
   }
 }

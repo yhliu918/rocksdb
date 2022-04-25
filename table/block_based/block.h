@@ -670,7 +670,7 @@ class IndexBlockIter final : public BlockIter<IndexValue> {
       // offset = reinterpret_cast<const uint64_t*>(v.data())[0];
       // size = reinterpret_cast<const uint64_t*>(v.data())[1];
       //std::cout<< "offset: " << offset_ << " size: " << size_ << std::endl;
-      BlockHandle handle(offset_,current_);
+      BlockHandle handle(offset_,size_);
       IndexValue ret(handle,"");
       return ret;
       

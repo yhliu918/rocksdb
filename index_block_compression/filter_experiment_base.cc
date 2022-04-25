@@ -32,12 +32,12 @@ void setValueBuffer(char* value_buf, int size, std::mt19937_64& e,
                     std::uniform_int_distribution<unsigned long long>& dist, std::string& key) {
   memset(value_buf, 0, size);
   int pos = size / 2;
-  while (pos < size) {
-    uint64_t num = dist(e);
-    char* num_bytes = reinterpret_cast<char*>(&num);
-    memcpy(value_buf + pos, num_bytes, 8);
-    pos += 8;
-  }
+  // while (pos < size) {
+  //   uint64_t num = dist(e);
+  //   char* num_bytes = reinterpret_cast<char*>(&num);
+  //   memcpy(value_buf + pos, num_bytes, 8);
+  //   pos += 8;
+  // }
   memcpy(value_buf, key.c_str(), key.size());
 }
 
@@ -180,11 +180,12 @@ void init(const std::string& key_path, const std::string& db_path,
 
     rocksdb::Random rnd(301);
     std::string prev = "";
-    uint64_t key_num = key_count * 10 ;
+    uint64_t key_num = key_count  ;
     double start = clock();
     for (uint64_t i = 0; i < key_num; i++) {
       //int index = random() % key_count;
-      int index = rnd.Uniform(key_count);
+      int index = i;
+      // int index = rnd.Uniform(key_count);
       key = keys[index];
       rocksdb::Slice s_key(key);
       std::string value;
@@ -603,7 +604,7 @@ int main(int argc, const char* argv[]) {
   const uint64_t kQueryCount = 50000;
 
   // 2GB config
-  const uint64_t kKeyCount = 20000000;
+  const uint64_t kKeyCount = 2000000;
   const uint64_t kWarmupSampleGap = 100;
 
   // 100GB config
@@ -619,6 +620,7 @@ int main(int argc, const char* argv[]) {
   init(kKeyPath, db_path, &db, &options, &table_options, use_direct_io,
        kKeyCount, kValueSize, filter_type, compression_type);
   system("cat /proc/$PPID/io");
+  close(db);
   if (query_type == 0) return 0;
 
   //=========================================================================

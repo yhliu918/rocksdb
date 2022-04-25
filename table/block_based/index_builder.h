@@ -463,7 +463,8 @@ class LecoIndexBuilder : public IndexBuilder {
       : IndexBuilder(comparator),
         index_block_builder_(padding_enabled, block_size, totalNum, key_num_per_block),
         shortening_mode_(shortening_mode),
-        include_first_key_(include_first_key) {
+        include_first_key_(include_first_key),
+        seperator_is_key_plus_seq_(false) {
           // format_version is not used in LecoIndexBuilder
   }
 
@@ -479,19 +480,33 @@ class LecoIndexBuilder : public IndexBuilder {
         comparator_->FindShortestSeparator(last_key_in_current_block,
                                            *first_key_in_next_block);
       }
+      if (!seperator_is_key_plus_seq_ &&
+          comparator_->user_comparator()->Compare(
+              ExtractUserKey(*last_key_in_current_block),
+              ExtractUserKey(*first_key_in_next_block)) == 0) {
+        seperator_is_key_plus_seq_ = true;
+      }
     } else {
       if (shortening_mode_ == BlockBasedTableOptions::IndexShorteningMode::
                                   kShortenSeparatorsAndSuccessor) {
         comparator_->FindShortSuccessor(last_key_in_current_block);
       }
     }
+
     auto sep = Slice(*last_key_in_current_block);
 
     IndexValue entry(block_handle, *last_key_in_current_block);
     std::string encoded_entry;
     entry.EncodeTo(&encoded_entry, include_first_key_, nullptr);
     Slice encoded_entry_slice(encoded_entry);
-    index_block_builder_.Add(sep, encoded_entry_slice);
+    
+    if (!seperator_is_key_plus_seq_) {
+      // std::cout<<"index block without seq "<<std::endl;
+      index_block_builder_.Add(ExtractUserKey(sep), encoded_entry_slice);
+    } else{
+      // std::cout<<"index block with seq "<<std::endl;
+      index_block_builder_.Add(sep, encoded_entry_slice);
+    }
 
   }
 
@@ -507,13 +522,14 @@ class LecoIndexBuilder : public IndexBuilder {
 
   virtual size_t IndexSize() const override { return index_size_; }
   virtual bool seperator_is_key_plus_seq() override {
-    return false;
+    return seperator_is_key_plus_seq_;
   }
 
  private:
   BlockBuilder_leco index_block_builder_;
   BlockBasedTableOptions::IndexShorteningMode shortening_mode_; // compression upon shortening version or not
   const bool include_first_key_;
+  bool seperator_is_key_plus_seq_;
 
 };
 

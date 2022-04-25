@@ -625,8 +625,10 @@ bool BlockIter<TValue>::ParseValue_leco(int index) {
 
   uint32_t N;
   N = reinterpret_cast<const uint32_t*>(data_)[0];
+  // std::cout<<current_<<"/"<<N<<std::endl;
   if (current_ >= N) {
     valid_ = false;
+    std::cout<<"not valid"<<std::endl;
     return false;
   }
   // std::cout<<"indexing: "<<index<<" / "<<N<<std::endl;
@@ -640,20 +642,22 @@ bool BlockIter<TValue>::ParseValue_leco(int index) {
   int data_offset = sizeof(uint32_t) * (4 + block_number);
   int block_offset = sizeof(uint32_t) * (4 + index_block_num);
   // decode the index_block_num'th block offset
-
+  int block_length = block_size_;
+  if(index_block_num == block_number - 1) {
+    block_length = N - block_size_ * (block_number - 1);
+  }
   uint32_t offset_val_off =
       reinterpret_cast<const uint32_t*>(data_ + data_size + block_offset)[0];
   uint64_t offset_val;
   randomdecodeArray8_integer(data_ + data_size + data_offset + offset_val_off,
-                             index % block_size_, &offset_val, index_block_num);
+                             index % block_size_, &offset_val, index_block_num, block_length);
 
   uint32_t size_val_off =
       reinterpret_cast<const uint32_t*>(data_ + off_size + block_offset)[0];
   uint64_t size_val;
   randomdecodeArray8_integer(data_ + off_size + data_offset + size_val_off,
-                             index % block_size_, &size_val, index_block_num);
-  // std::cout<<offset_val_off<<" "<<size_val_off<<" "<<offset_val<<"
-  // "<<size_val<<std::endl;
+                             index % block_size_, &size_val, index_block_num, block_length);
+  // std::cout<<"searching "<<index_block_num<<"block,  block offset "<<index % block_size_<<", "<<offset_val_off<<" "<<size_val_off<<" "<<offset_val<<" "<<size_val<<std::endl;
   //  std::string v;
   //  PutFixed64(&v, offset_val);
   //  PutFixed64(&v, size_val);
@@ -931,7 +935,7 @@ bool BlockIter<TValue>::BinarySeek_leco(Slice& target, uint32_t* index) {
     // int right = std::min(left + interval, (block_left + 1) * block_size_ - 1);
     int right = left + interval - 1;
     if (index_search == total_firstkey_num - 1) {
-      right = N;
+      right = N-1;
     }
     int start_byte =
         reinterpret_cast<const int*>(data_ + data_offset + block_left * 4)[0];
@@ -1002,6 +1006,10 @@ bool BlockIter<TValue>::BinarySeek_leco(Slice& target, uint32_t* index) {
             left = mid;
           }
         }
+        if (left == N-1){
+          *index = static_cast<uint32_t>(left);
+          return true;
+        }
         *index = static_cast<uint32_t>(left) + 1;
         return true;
         }
@@ -1042,6 +1050,10 @@ bool BlockIter<TValue>::BinarySeek_leco(Slice& target, uint32_t* index) {
             left = mid;
           }
         }
+        if (left == N-1){
+          *index = static_cast<uint32_t>(left);
+          return true;
+        }
         *index = static_cast<uint32_t>(left) + 1;
         return true;
       }
@@ -1080,6 +1092,10 @@ bool BlockIter<TValue>::BinarySeek_leco(Slice& target, uint32_t* index) {
           } else if (data_mid < record) {
             left = mid;
           }
+        }
+        if (left == N-1){
+          *index = static_cast<uint32_t>(left);
+          return true;
         }
         *index = static_cast<uint32_t>(left) + 1;
         return true;
@@ -1389,11 +1405,14 @@ IndexBlockIter* Block::NewIndexIterator(
     ret_iter->Invalidate(Status::Corruption("bad block contents"));
     return ret_iter;
   }
-  if (num_restarts_ == 0) {
+  if (num_restarts_ == 0 && !using_leco_encode) {
     // Empty block.
     ret_iter->Invalidate(Status::OK());
     return ret_iter;
-  } else {
+  }
+  if(num_restarts_ == 0 && using_leco_encode){
+    num_restarts_ = 1;
+  }
     BlockPrefixIndex* prefix_index_ptr =
         total_order_seek ? nullptr : prefix_index;
     ret_iter->Initialize(raw_ucmp, data_, restart_offset_, num_restarts_,
@@ -1401,7 +1420,7 @@ IndexBlockIter* Block::NewIndexIterator(
                          key_includes_seq, value_is_full, block_contents_pinned,
                          using_leco_encode, block_size, padding_enable,
                          key_num_per_block);
-  }
+  
 
   return ret_iter;
 }

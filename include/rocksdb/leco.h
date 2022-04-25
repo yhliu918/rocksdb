@@ -66,7 +66,17 @@ class Leco_string {
   uint8_t* encodeArray8_string(std::vector<std::string>& string_vec,
                                int start_idx, const size_t length, uint8_t* res,
                                std::string* common_prefix, int common_prefix_length, uint8_t encoding_type, int interval) {
+
     uint8_t* out = res;
+    // if(length == 1){
+    //   out[0] = (uint8_t)string_vec[start_idx].size();
+    //   out +=sizeof(uint8_t);
+    //   T result = convertToASCII<T>(string_vec[start_idx])
+    //   memcpy(out, &result, sizeof(T));
+    //   out += sizeof(T);
+    //   return out;
+    // }                             
+    
     std::vector<T> ascii_vec;
     std::vector<T> ascii_vec_min;
     std::vector<T> ascii_vec_max;
@@ -158,12 +168,12 @@ class Leco_string {
     out += sizeof(T);
     memcpy(out, &theta1, sizeof(T));
     out += sizeof(T);
-    if (max_bit) {
-      out = write_delta_string(
+
+    out = write_delta_string(
           delta.data(), signvec,
           string_wo_padding_length_vec.data(), out, max_bit,
           counter);
-    }
+
 
     return out;
   }
@@ -226,6 +236,7 @@ class Leco_string {
 template <typename T>
 inline uint8_t randomdecodeArray8_string(const char* in, int idx, int index_origin, T* result,
                                          int length, int common_prefix_length) {
+
   const uint8_t* tmpin = reinterpret_cast<const uint8_t*>(in);
   uint32_t maxbits=0;
   memcpy(&maxbits, tmpin, sizeof(uint32_t));
@@ -265,6 +276,10 @@ class Leco_integral {
  public:
   uint8_t* encodeArray8(uint64_t* in, const size_t length, uint8_t* res,
                         size_t nvalue) {
+    if(length == 1){
+      memcpy(res, in, sizeof(uint64_t));
+      return res + sizeof(uint64_t);
+    }
     double* indexes = new double[length];
     double* keys = new double[length];
     // double *keys_sample = new double [length];
@@ -313,6 +328,10 @@ class Leco_integral {
   inline uint64_t* decodeArray8(uint8_t* in, const size_t length, uint64_t* out,
                                 size_t nvalue) {
     // std::cout<<"decompressing all!"<<std::endl;
+    if(length == 1){
+      memcpy(out, in, sizeof(uint64_t));
+      return out + sizeof(uint64_t);
+    }
     double theta0;
     double theta1;
     uint8_t maxerror;
@@ -331,7 +350,12 @@ class Leco_integral {
 };
 
 inline void randomdecodeArray8_integer(const char* in, const size_t l,
-                                       uint64_t* out, size_t nvalue) {
+                                       uint64_t* out, size_t nvalue, int block_length) {
+
+  if(block_length==1){
+    memcpy(out, in, sizeof(uint64_t));
+    return;
+  }                                      
   double theta0;
   double theta1;
   uint8_t maxerror;
