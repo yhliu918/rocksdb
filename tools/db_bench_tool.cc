@@ -285,7 +285,7 @@ DEFINE_int32(threads, 1, "Number of concurrent threads to run.");
 
 DEFINE_int32(duration, 0, "Time in seconds for the random-ops tests to run."
              " When 0 then num & reads determine the test duration");
-
+              
 DEFINE_string(value_size_distribution_type, "fixed",
               "Value size distribution type: fixed, uniform, normal");
 
@@ -751,6 +751,9 @@ DEFINE_bool(use_fsync, false, "If true, issue fsync instead of fdatasync");
 DEFINE_bool(disable_wal, false, "If true, do not write WAL for write.");
 
 DEFINE_string(wal_dir, "", "If not empty, use the given dir for WAL");
+
+DEFINE_string(workload_path, "",
+              "If not empty, use the given workload pattern path");
 
 DEFINE_string(truth_db, "/dev/shm/truth_db/dbbench",
               "Truth key/values used when using verify");
@@ -1466,6 +1469,7 @@ DEFINE_double(cuckoo_hash_ratio, 0.9, "Hash ratio for Cuckoo SST table.");
 DEFINE_bool(use_hash_search, false, "if use kHashSearch "
             "instead of kBinarySearch. "
             "This is valid if only we use BlockTable");
+DEFINE_int32(Seek_pos_range, 20000000, "Number of hot set ");
 DEFINE_bool(use_leco_search, false, "if use kBinarySearchLeco "
             "instead of kBinarySearch. "
             "This is valid if only we use BlockTable");
@@ -2200,6 +2204,10 @@ class Stats {
 
   void AddMessage(Slice msg) {
     AppendWithSpace(&message_, msg);
+  }
+
+  void SetStart(){
+    start_ = clock_->NowMicros();
   }
 
   void SetId(int id) { id_ = id; }
@@ -5692,6 +5700,7 @@ class Benchmark {
       const uint64_t kBigPrime = 0x5bd1e995;
       // Overflow is like %(2^64). Will have little impact of results.
       key_rand = static_cast<int64_t>((rand_num * kBigPrime) % FLAGS_num);
+      // std::cout<<key_rand<<std::endl;
     }
     return key_rand;
   }
@@ -5711,6 +5720,11 @@ class Benchmark {
     if (user_timestamp_size_ > 0) {
       ts_guard.reset(new char[user_timestamp_size_]);
     }
+    // std::string out_path="/mnt/query_key_sample.txt";
+    // std::ofstream outFile(out_path, std::ios::out);
+    std::string workload_path =FLAGS_workload_path;
+    std::ifstream inFile(workload_path, std::ios::in);
+    std::string op;
 
     Duration duration(FLAGS_duration, reads_);
     while (!duration.Done(1)) {
@@ -5732,6 +5746,8 @@ class Benchmark {
       } else {
         key_rand = GetRandomKey(&thread->rand);
       }
+      inFile >> op>>key_rand;
+      // outFile<<key_rand<<std::endl;
       GenerateKeyFromInt(key_rand, FLAGS_num, &key);
       read++;
       std::string ts_ret;
@@ -5750,11 +5766,27 @@ class Benchmark {
         s = db_with_cfh->db->Get(options,
                                  db_with_cfh->db->DefaultColumnFamily(), key,
                                  &pinnable_val, ts_ptr);
+        // std::string hex_out = key.ToString(true);
+        // if(hex_out>="00000000275AAE4B303030303030303030303030" && hex_out<= "00000000276CA594303030303030303030303030"){
+        //     outFile << hex_out << "\n";
+        //     std::cout<<"key "<<hex_out<<std::endl;
+        // }
+        
+        // if(!s.ok() && !s.IsNotFound()){
+        //     std::cout<<"key "<<key.ToString()<<" value "<<*pinnable_val.GetSelf()<<std::endl;
+        //     s = db_with_cfh->db->Get(options,
+        //                          db_with_cfh->db->DefaultColumnFamily(), key,
+        //                          &pinnable_val, ts_ptr);
+        // }
       }
+      
+
       if (s.ok()) {
         found++;
         bytes += key.size() + pinnable_val.size() + user_timestamp_size_;
       } else if (!s.IsNotFound()) {
+        // std::string hex_out = key.ToString(true);
+        // std::cout<<"key "<<hex_out<<std::endl;
         fprintf(stderr, "Get returned an error: %s\n", s.ToString().c_str());
         abort();
       }
@@ -5779,6 +5811,7 @@ class Benchmark {
       thread->stats.AddMessage(std::string("PERF_CONTEXT:\n") +
                                get_perf_context()->ToString());
     }
+
   }
 
   // Calls MultiGet over a list of keys from a random distribution.
@@ -6407,10 +6440,43 @@ class Benchmark {
     std::unique_ptr<const char[]> lower_bound_key_guard;
     Slice lower_bound = AllocateKey(&lower_bound_key_guard);
 
-    Duration duration(FLAGS_duration, reads_);
+    
     char value_buffer[256];
-    while (!duration.Done(1)) {
-      int64_t seek_pos = thread->rand.Next() % FLAGS_num;
+    // std::string out_path="/mnt/seek_key_sample.txt";
+    // std::ofstream outFile(out_path, std::ios::out);
+    std::string workload_path =FLAGS_workload_path;
+    std::ifstream inFile(workload_path, std::ios::in);
+    std::string op;
+    std::vector<int64_t> seek_pos_vec;
+    int64_t tmp_pos;
+    int counter=0;
+    int start_ind = (FLAGS_Seek_pos_range/FLAGS_threads)*thread->tid;
+    int end_ind = (FLAGS_Seek_pos_range/FLAGS_threads)*(thread->tid+1)-1;
+    // while(inFile.good()){
+    for(int i=0;i<FLAGS_Seek_pos_range;i++){
+        inFile >> op>>tmp_pos;
+        // inFile>>tmp_pos;
+        if(!inFile.good()){break;}
+        if(i>=start_ind && i<end_ind){
+            seek_pos_vec.emplace_back(tmp_pos);
+        }
+    }
+    int repeat = 10;
+    while(repeat){
+      for(int i=0;i<(end_ind-start_ind+1);i++){
+        seek_pos_vec.emplace_back(seek_pos_vec[i]);
+      }
+      repeat--;
+    }
+    inFile.close();
+    
+    int idx = 0;
+    // std::cout<<start_ind<<" "<<end_ind<<" "<<seek_pos_vec.size()<<std::endl;
+    thread->stats.SetStart();
+    Duration duration(FLAGS_duration, reads_);
+    while (!duration.Done(1) && idx<(int)seek_pos_vec.size()) {
+      // int64_t seek_pos = thread->rand.Next() % FLAGS_num;
+      int64_t seek_pos = seek_pos_vec[idx++];
       GenerateKeyFromIntForSeek(static_cast<uint64_t>(seek_pos), FLAGS_num,
                                 &key);
       if (FLAGS_max_scan_distance != 0) {
@@ -8096,7 +8162,7 @@ int db_bench_tool(int argc, char** argv) {
 #ifndef CYGWIN
         std::stoi(fanout[j]));
 #else
-        stoi(fanout[j]));
+        stoi(fanout[j]);
 #endif
   }
 

@@ -137,13 +137,14 @@ const_params="
   --level_compaction_dynamic_level_bytes=true \
   --bytes_per_sync=$((8 * M)) \
   --cache_index_and_filter_blocks=0 \
+  --cache_high_pri_pool_ratio=0 \
   --pin_l0_filter_and_index_blocks_in_cache=1 \
   --benchmark_write_rate_limit=$(( 1024 * 1024 * $mb_written_per_sec )) \
   \
-  --use_leco_search=1 \
+  --use_leco_search=0 \
   --padding_enable=1 \
   --leco_block_size=64 \
-  --key_num_per_block=32 \
+  --key_num_per_block=16 \
   \
   --hard_rate_limit=3 \
   --rate_limit_delay_max_milliseconds=1000000 \
